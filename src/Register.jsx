@@ -1,7 +1,9 @@
-import { GoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerUser } from "./firebaseAuth";
+import { loginWithGoogle, registerUser } from "./firebaseAuth";
+import { FaGoogle } from "react-icons/fa";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
 export default function Register({ setUser }) {
   const navigate = useNavigate();
@@ -26,11 +28,29 @@ export default function Register({ setUser }) {
     }
     try {
       const token = await registerUser(email, password);
-      localStorage.setItem("token", token);
-      setUser(email);
+      localStorage.setItem("token", token.accessToken);
+      await setDoc(doc(db, "users", token.uid), {
+        email: token.email,
+        createdAt: new Date(),
+      });
       navigate("/");
     } catch (error) {
+      console.log(error);
       setMessage("Invalid email or password");
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    try {
+      const token = await loginWithGoogle();
+      localStorage.setItem("token", token.accessToken);
+      await setDoc(doc(db, "users", token.uid), {
+        email: token.email,
+        createdAt: new Date(),
+      });
+      navigate("/");
+    } catch (error) {
+      setMessage("Error registering with Google.");
     }
   };
 
@@ -74,17 +94,20 @@ export default function Register({ setUser }) {
         </form>
         <h3 className="text-center text-gray-700 mb-4">OR</h3>
         <div className="flex justify-center">
-          <GoogleLogin clientId="202469683498-0hf0bgijnv67do9hvj7idh6aijkdgg9b.apps.googleusercontent.com">
-            Register with Google
-          </GoogleLogin>
+          <button
+            onClick={handleGoogleRegister}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:cursor-pointer hover:bg-red-600 transition-colors"
+          >
+            <FaGoogle /> Continue with Google
+          </button>
         </div>
         <div className="flex justify-center mt-3">
-          <p className="flex text-center gap-1 text-sm">
+          <div className="flex text-center gap-1 text-sm">
             Have an account? Click here to
             <Link to="/login">
               <p className="text-blue-500 text-sm">Login</p>
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

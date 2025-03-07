@@ -1,14 +1,12 @@
-import NavBar from "./NavBar";
-import CodeEditor from "./CodeEditor";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { Link, useNavigate } from "react-router-dom";
-import { getAuth } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import NavBar from "./NavBar";
 import { jwtDecode } from "jwt-decode";
 
-export default function Dashboard() {
-  const [email, setEmail] = useState(null);
+export default function Profile() {
   const [name, setName] = useState(null);
+  const [email, setEmail] = useState(null);
   const navigate = useNavigate();
   const auth = getAuth();
 
@@ -29,12 +27,13 @@ export default function Dashboard() {
 
     return () => unsubscribe();
   }, [auth, navigate]);
+  const token = localStorage.getItem("token");
 
   return (
     <div>
       <NavBar />
-      <h1 className="p-8 text-4xl font-medium">Welcome, {name}!</h1>
-      <Link to={`/problem/${"hello"}`}>hi</Link>
+      <h1 className="text-4xl text-center p-8 font-medium">Profile</h1>
+      <p>Email: {email}</p>
     </div>
   );
 }

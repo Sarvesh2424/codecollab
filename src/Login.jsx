@@ -1,9 +1,9 @@
-import { GoogleLogin } from "@react-oauth/google";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginUser } from "./firebaseAuth";
+import { loginUser, loginWithGoogle } from "./firebaseAuth";
+import { FaGoogle } from "react-icons/fa";
 
-export default function Login({ setUser }) {
+export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,11 +21,20 @@ export default function Login({ setUser }) {
     try {
       e.preventDefault();
       const token = await loginUser(email, password);
-      localStorage.setItem("token", token);
-      setUser(email);
+      localStorage.setItem("token", token.accessToken);
       navigate("/");
     } catch (error) {
       setMessage("Invalid email or password.");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const token = await loginWithGoogle();
+      localStorage.setItem("token", token.accessToken);
+      navigate("/");
+    } catch (error) {
+      setMessage("Error logging in with Google.");
     }
   };
 
@@ -61,9 +70,12 @@ export default function Login({ setUser }) {
         </form>
         <h3 className="text-center text-gray-700 mb-4">OR</h3>
         <div className="flex justify-center">
-          <GoogleLogin clientId="202469683498-0hf0bgijnv67do9hvj7idh6aijkdgg9b.apps.googleusercontent.com">
-            Login with Google
-          </GoogleLogin>
+          <button
+            onClick={handleGoogleLogin}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:cursor-pointer hover:bg-red-600 transition-colors"
+          >
+            <FaGoogle /> Continue with Google
+          </button>
         </div>
         <div className="flex justify-center mt-3">
           <div className="flex text-center gap-1 text-sm">
