@@ -17,7 +17,7 @@ function App() {
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/register" element={<Register setUser={setUser} />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/problem/:title" element={<ProblemScreen />} />
+        <Route path="/problem/:id" element={<ProblemScreen />} />
       </Routes>
     </BrowserRouter>
   );
