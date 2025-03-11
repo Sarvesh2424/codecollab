@@ -1,4 +1,9 @@
-import { CircleUserRoundIcon, BellIcon, LogOutIcon } from "lucide-react";
+import {
+  CircleUserRoundIcon,
+  ContactIcon,
+  LogOutIcon,
+  HomeIcon,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { logout } from "./firebaseAuth";
 
@@ -11,10 +16,14 @@ export default function NavBar() {
           <h1 className="ml-4 text-2xl font-bold">Codab</h1>
         </div>
       </Link>
-      <div className="flex items-center space-x-4 mr-4">
-        <BellIcon className="w-5 h-5 hover:cursor-pointer" />
-        <Link to="/" className="hover:cursor-pointer">
+      <div className="flex items-center space-x-8 mr-4">
+        <Link to="/" className="hover:cursor-pointer flex items-center gap-2">
+          <HomeIcon className="w-5 h-5" />
           <p className="hover:cursor-pointer">Home</p>
+        </Link>
+        <Link to="/friends" className="hover:cursor-pointer flex items-center gap-2">
+          <ContactIcon className="w-5 h-5" />
+          <p className="hover:cursor-pointer">Friends</p>
         </Link>
         <Link to="/profile" className="hover:cursor-pointer">
           <CircleUserRoundIcon className="w-8 h-8 hover:cursor-pointer" />
