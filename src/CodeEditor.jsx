@@ -48,13 +48,13 @@ export default function CodeEditor() {
         </select>
         <div className="flex gap-2">
           <div
-            className="px-4 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors hover:cursor-pointer"
+            className="px-4 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors hover:cursor-pointer"
             onClick={handleRun}
           >
             <PlayIcon className="w-5 h-5" />
             <button>Run</button>
           </div>
-          <div className="px-4 py-2 flex items-center gap-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors hover:cursor-pointer">
+          <div className="px-4 py-2 flex items-center gap-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors hover:cursor-pointer">
             <SendHorizonalIcon className="w-5 h-5" />
             <button>Submit</button>
           </div>
