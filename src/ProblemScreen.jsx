@@ -11,7 +11,14 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { jwtDecode } from "jwt-decode";
-import { MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from "lucide-react";
+import {
+  MicIcon,
+  MicOffIcon,
+  VideoIcon,
+  VideoOffIcon,
+  PhoneIcon,
+  CodeIcon,
+} from "lucide-react";
 
 export default function ProblemScreen() {
   const [isCode, setIsCode] = useState(true);
@@ -217,19 +224,25 @@ export default function ProblemScreen() {
         <div className="mt-20 p-8">
           <button
             onClick={() => setIsCode(true)}
-            className={`px-4 w-24 py-2 ${
+            className={`px-4 w-36 py-2 ${
               isCode == true ? "bg-blue-600" : "bg-blue-500"
             } text-white border border-r-white rounded-l-xl hover:cursor-pointer transition-colors`}
           >
-            Problem
+            <div className="flex justify-center items-center gap-2">
+              <CodeIcon />
+              Problem
+            </div>
           </button>
           <button
             onClick={() => setIsCode(false)}
-            className={`px-4 w-24 py-2 ${
+            className={`px-4 w-36 py-2 ${
               isCode == false ? "bg-blue-600" : "bg-blue-500"
             } text-white border border-l-white rounded-r-xl hover:cursor-pointer transition-colors`}
           >
-            Call
+            <div className="flex justify-center items-center gap-2">
+              <PhoneIcon />
+              Call
+            </div>
           </button>
           <div className="flex justify-between">
             <div className="mt-10 flex justify-between">
@@ -335,7 +348,7 @@ export default function ProblemScreen() {
                 </div>
               )}
             </div>
-            <CodeEditor />
+            <CodeEditor testCases={problem.testCases} />
           </div>
         </div>
       )}

@@ -3,10 +3,11 @@ import { Editor } from "@monaco-editor/react";
 import { PlayIcon, SendHorizonalIcon } from "lucide-react";
 import axios from "axios";
 
-export default function CodeEditor() {
+export default function CodeEditor({ testCases }) {
   const [language, setLanguage] = useState("cpp");
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
+  const [testResults, setTestResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const languageMap = {
@@ -17,15 +18,41 @@ export default function CodeEditor() {
 
   const handleRun = async () => {
     setLoading(true);
-    setOutput("Running...");
+    setOutput("Running test cases...");
+    setTestResults([]);
 
     try {
-      const response = await axios.post("http://localhost:5000/execute", {
-        script: code,
-        language: languageMap[language],
-      });
+      const results = await Promise.all(
+        testCases.map(async (testCase) => {
+          try {
+            const response = await axios.post("http://localhost:5000/execute", {
+              script: code,
+              language: languageMap[language],
+              input: testCase.input,
+            });
 
-      setOutput(response.data.output || "No Output");
+            const passed =
+              response.data.output.trim() === testCase.expectedOutput.trim();
+            return {
+              input: testCase.input,
+              expectedOutput: testCase.expectedOutput,
+              actualOutput: response.data.output,
+              passed,
+            };
+          } catch (error) {
+            console.error("Test case execution error:", error);
+            return {
+              input: testCase.input,
+              expectedOutput: testCase.expectedOutput,
+              actualOutput: "Error occurred while running the test case.",
+              passed: false,
+            };
+          }
+        })
+      );
+
+      setTestResults(results);
+      setOutput("Test cases completed.");
     } catch (error) {
       console.error("Compilation Error:", error);
       setOutput("Error occurred while running the code.");
@@ -71,6 +98,37 @@ export default function CodeEditor() {
       <div className="w-full mt-4 p-4 bg-gray-300 text-black rounded-xl">
         <h3 className="text-lg font-medium">Output:</h3>
         <pre className="mt-2">{output}</pre>
+        {testResults.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-md font-medium">Test Results:</h4>
+            {testResults.map((result, index) => (
+              <div
+                key={index}
+                className={`mt-2 p-2 rounded-lg ${
+                  result.passed ? "bg-green-100" : "bg-red-100"
+                }`}
+              >
+                <div className="font-medium">
+                  Test Case {index + 1}:{" "}
+                  {result.passed ? "✅ Passed" : "❌ Failed"}
+                </div>
+                <div className="mt-1">
+                  <div>
+                    <span className="font-medium">Input:</span> {result.input}
+                  </div>
+                  <div>
+                    <span className="font-medium">Expected Output:</span>{" "}
+                    {result.expectedOutput}
+                  </div>
+                  <div>
+                    <span className="font-medium">Actual Output:</span>{" "}
+                    {result.actualOutput}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
