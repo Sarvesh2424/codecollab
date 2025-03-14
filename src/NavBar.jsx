@@ -13,7 +13,7 @@ export default function NavBar() {
       <Link to="/" className="hover:cursor-pointer">
         <div className="ml-4 flex items-center">
           <img src="/icon.png" alt="logo" className="w-8 h-8" />
-          <h1 className="ml-4 text-2xl font-bold">Codab</h1>
+          <h1 className="ml-4 tracking-tighter text-2xl font-bold">Codab</h1>
         </div>
       </Link>
       <div className="flex items-center space-x-8 mr-4">
