@@ -248,7 +248,7 @@ export default function ProblemScreen() {
             <div className="mt-10 flex justify-between">
               {isCode ? (
                 <div>
-                  <h1 className="text-4xl font-semibold">{problem.title}</h1>
+                  <h1 className="text-4xl font-bold">{problem.title}</h1>
                   <p className="mt-8 text-xl">{problem.description}</p>
                   <div className="mt-8 flex items-center gap-2">
                     Difficulty:{" "}

@@ -32,25 +32,35 @@ export default function Register({ setUser }) {
       await setDoc(doc(db, "users", token.uid), {
         email: token.email,
         createdAt: new Date(),
+        friends: [],
+        pending: [],
       });
       navigate("/");
     } catch (error) {
       console.log(error);
-      setMessage("Invalid email or password");
+      setMessage(error.message || "Registration failed. Please try again.");
     }
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleGoogleRegister = async () => {
+    setIsLoading(true);
+    setMessage("");
     try {
-      const token = await loginWithGoogle();
+      const token = await loginWithGoogle(true);
       localStorage.setItem("token", token.accessToken);
       await setDoc(doc(db, "users", token.uid), {
         email: token.email,
         createdAt: new Date(),
+        friends: [],
+        pending: [],
       });
       navigate("/");
     } catch (error) {
-      setMessage("Error registering with Google.");
+      setMessage(error.message || "Error registering with Google.");
+    } finally {
+      setIsLoading(false);
     }
   };
 

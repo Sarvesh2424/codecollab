@@ -33,7 +33,7 @@ export default function Profile() {
     <div>
       <NavBar />
       <div className="mt-20 p-8">
-        <h1 className="text-4xl text-center p-8 font-medium">Profile</h1>
+        <h1 className="text-4xl text-center p-8 font-bold">Profile</h1>
         <p>Email: {email}</p>
       </div>
     </div>
