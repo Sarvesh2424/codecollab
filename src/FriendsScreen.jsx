@@ -3,14 +3,28 @@ import { useEffect, useState } from "react";
 import NavBar from "./NavBar";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { SearchIcon } from "lucide-react";
+import {
+  SearchIcon,
+  UserPlusIcon,
+  UserRoundPlusIcon,
+  UserRoundXIcon,
+} from "lucide-react";
 import { db } from "./firebase";
-import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
-import { UserPlusIcon } from "lucide-react";
+import {
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 export default function FriendsScreen() {
   const [isFriendsScreen, setIsFriendsScreen] = useState(true);
   const [friends, setFriends] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -40,10 +54,17 @@ export default function FriendsScreen() {
   }, [auth, navigate]);
 
   const loadUserData = async (userEmail) => {
-    const userDoc = await getDoc(doc(db, "users", userEmail));
-    if (userDoc.exists()) {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", userEmail));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
       setFriends(userDoc.data().friends || []);
       setPendingRequests(userDoc.data().pendingRequests || []);
+      console.log(userDoc.data());
+    } else {
+      console.log("No user document found for:", userEmail);
     }
   };
 
@@ -58,14 +79,24 @@ export default function FriendsScreen() {
           user.email.toLowerCase().includes(search.toLowerCase())
       );
     setUsers(matchedUsers.map((user) => user.email));
+    setShowDropdown(matchedUsers.length > 0);
   };
 
-  const sendFriendRequest = async (friendEmail) => {
-    const friendDocRef = doc(db, "users", friendEmail);
-    const friendDoc = await getDoc(friendDocRef);
-    const friendData = friendDoc.data();
-    await updateDoc(friendDocRef, {
-      pendingRequests: [...(friendData.pendingRequests || []), email],
+  const sendFriendRequest = async (recipientEmail) => {
+    console.log("Sending friend request to:", recipientEmail);
+
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", recipientEmail));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      alert("User does not exist!");
+      return;
+    }
+
+    const recipientDocRef = querySnapshot.docs[0].ref;
+    await updateDoc(recipientDocRef, {
+      pendingRequests: arrayUnion(email),
     });
 
     alert("Friend request sent!");
@@ -82,31 +113,37 @@ export default function FriendsScreen() {
               <SearchIcon className="w-5 h-5 text-gray-400" />
             </div>
             <input
+              value={search}
               onChange={(e) => {
-                handleSearch();
                 setSearch(e.target.value);
-                setShowDropdown(!!e.target.value);
+                handleSearch();
               }}
               onFocus={() => setShowDropdown(!!search)}
-              onBlur={() => setShowDropdown(false)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
               type="search"
               className="w-full pl-10 p-4 border-2 border-gray-300 rounded-xl"
               placeholder="Enter your friend's email to add them..."
             />
             {showDropdown && users.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
+              <div
+                className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg"
+                onMouseDown={(e) => e.preventDefault()}
+              >
                 {users.map((user) => (
                   <div
                     key={user}
-                    className="px-4 py-2 flex items-center justify-between"
-                    onMouseDown={() => {
+                    className="px-4 py-2 flex items-center justify-between hover:bg-gray-100 cursor-pointer"
+                    onClick={() => {
                       setSearch(user);
                       setShowDropdown(false);
                     }}
                   >
                     {user}
                     <button
-                      onClick={sendFriendRequest}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendFriendRequest(user);
+                      }}
                       className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <UserPlusIcon className="w-5 h-5" />
@@ -119,16 +156,16 @@ export default function FriendsScreen() {
           <div className="mt-10 w-1/2 flex items-center">
             <button
               onClick={() => setIsFriendsScreen(true)}
-              className={`w-1/2 hover:cursor-pointer  ${
-                isFriendsScreen == true ? "bg-blue-600" : "bg-blue-500"
+              className={`w-1/2 hover:cursor-pointer ${
+                isFriendsScreen ? "bg-blue-600" : "bg-blue-500"
               } text-white px-4 py-2 rounded-l-xl border border-r-white`}
             >
               Your Friends
             </button>
             <button
               onClick={() => setIsFriendsScreen(false)}
-              className={`w-1/2 hover:cursor-pointer  ${
-                isFriendsScreen == false ? "bg-blue-600" : "bg-blue-500"
+              className={`w-1/2 hover:cursor-pointer ${
+                !isFriendsScreen ? "bg-blue-600" : "bg-blue-500"
               } text-white px-4 py-2 rounded-r-xl border border-l-white`}
             >
               Pending Requests
@@ -153,6 +190,21 @@ export default function FriendsScreen() {
                   No friends yet.
                 </div>
               )
+            ) : pendingRequests.length > 0 ? (
+              pendingRequests.map((request) => (
+                <div
+                  key={request}
+                  className="m-4 flex items-center justify-between w-full p-4 rounded-xl bg-blue-100 "
+                >
+                  <div>{request}</div>
+                  <button className="p-2 bg-green-500 text-white rounded-xl hover:bg-green-600 flex items-center gap-2 justify-center transition-colors cursor-pointer">
+                    <UserRoundPlusIcon/>Accept
+                  </button>
+                  <button className="p-2 gap-2 bg-red-500 text-white rounded-xl hover:bg-red-600 flex items-center justify-center transition-colors cursor-pointer">
+                    <UserRoundXIcon/>Decline
+                  </button>
+                </div>
+              ))
             ) : (
               <div className="text-center mt-40 text-gray-500">
                 No pending requests.
