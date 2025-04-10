@@ -19,6 +19,7 @@ import {
   PhoneIcon,
   CodeIcon,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function ProblemScreen() {
   const [isCode, setIsCode] = useState(true);
@@ -83,7 +84,7 @@ export default function ProblemScreen() {
         peerConnection.current = setupPeerConnection(stream);
       } catch (error) {
         console.error("Error accessing media devices:", error);
-        alert("Please allow access to microphone.");
+        toast.error("Please allow access to microphone.");
       }
     };
 

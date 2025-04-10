@@ -7,22 +7,26 @@ import { useState } from "react";
 import ProblemScreen from "./ProblemScreen";
 import FriendsScreen from "./FriendsScreen";
 import NotFoundScreen from "./NotFoundScreen";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const [user, setUser] = useState(null);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/login" element={<Login setUser={setUser} />} />
-        <Route path="/register" element={<Register setUser={setUser} />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/problem/:id" element={<ProblemScreen />} />
-        <Route path="*" element={<NotFoundScreen />} />
-        <Route path="/friends" element={<FriendsScreen />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <Toaster position="bottom-right" reverseOrder={false} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route path="/register" element={<Register setUser={setUser} />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/problem/:id" element={<ProblemScreen />} />
+          <Route path="*" element={<NotFoundScreen />} />
+          <Route path="/friends" element={<FriendsScreen />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 
