@@ -25,10 +25,11 @@ export default function CodeEditor({ testCases }) {
       const results = await Promise.all(
         testCases.map(async (testCase) => {
           try {
-            const response = await axios.post("http://localhost:5000/execute", {
+            console.log("Sending input to backend:", JSON.stringify(testCase.input));
+            const response = await axios.post("http://127.0.0.1:5000/execute", {
               script: code,
               language: languageMap[language],
-              input: testCase.input,
+              input: testCase.input.replace(/],?\s?(\d+)$/, "]\n$1").replace(/\\n/g, "\n"),
             });
 
             const passed =

@@ -45,10 +45,10 @@ export default function Dashboard() {
   return (
     <div>
       <NavBar />
-      <h1 className="mt-20 px-8 pt-8 text-4xl font-medium">Welcome, {name}!</h1>
-      <h2 className="px-8 text-xl">Ready to collab and code some problems?</h2>
-      <div className="p-8">
-        <h1 className="text-2xl font-semibold">Problems</h1>
+      <h1 className="mt-20 px-4 sm:px-8 pt-8 text-3xl sm:text-4xl font-medium">Welcome, {name}!</h1>
+      <h2 className="px-4 sm:px-8 text-lg sm:text-xl">Ready to collab and code some problems?</h2>
+      <div className="p-4 sm:p-8">
+        <h1 className="text-xl sm:text-2xl font-semibold">Problems</h1>
         {problems.length === 0 ? (
           <p className="text-center py-20">Loading...</p>
         ) : (
@@ -56,11 +56,11 @@ export default function Dashboard() {
             <table className="mt-5 w-full border-collapse border border-gray-300">
               <thead>
                 <tr className="bg-black text-white">
-                  <th className="px-4 py-2 font-normal text-left">Title</th>
-                  <th className="px-4 py-2 font-normal text-left">
+                  <th className="px-2 sm:px-4 py-2 font-normal text-left">Title</th>
+                  <th className="px-2 sm:px-4 py-2 font-normal text-left">
                     Difficulty
                   </th>
-                  <th className="px-4 py-2 font-normal text-left">Tags</th>
+                  <th className="px-2 sm:px-4 py-2 font-normal text-left">Tags</th>
                 </tr>
               </thead>
               <tbody>
@@ -69,7 +69,7 @@ export default function Dashboard() {
                     key={problem.id}
                     className="hover:bg-gray-100 transition-colors"
                   >
-                    <td className="border border-gray-300 px-4 py-2">
+                    <td className="border border-gray-300 px-2 sm:px-4 py-2">
                       <Link
                         to={`/problem/${problem.id}`}
                         className="text-black hover:text-blue-500 transition-colors" 
@@ -78,7 +78,7 @@ export default function Dashboard() {
                       </Link>
                     </td>
                     <td
-                      className={`border border-gray-300 px-4 py-2 text-sm ${
+                      className={`border border-gray-300 px-2 sm:px-4 py-2 text-sm ${
                         problem.difficulty === "Easy"
                           ? "text-green-500"
                           : problem.difficulty === "Medium"
@@ -88,7 +88,7 @@ export default function Dashboard() {
                     >
                       {problem.difficulty}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2">
+                    <td className="border border-gray-300 px-2 sm:px-4 py-2">
                       {problem.tags ? problem.tags.join(", ") : "N/A"}
                     </td>
                   </tr>

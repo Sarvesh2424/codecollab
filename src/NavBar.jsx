@@ -1,44 +1,94 @@
+import { useState } from "react";
 import {
   CircleUserRoundIcon,
   ContactIcon,
   LogOutIcon,
   HomeIcon,
+  MenuIcon,
+  XIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logout } from "./firebaseAuth";
 
 export default function NavBar() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <div className="flex justify-between w-full bg-gray-950 text-white p-4 shadow-2xl fixed top-0 z-10">
-      <Link to="/" className="hover:cursor-pointer">
-        <div className="ml-4 flex items-center">
+    <nav className="bg-gray-950 text-white fixed top-0 w-full z-10 shadow-2xl">
+      <div className="flex justify-between items-center p-4 max-w-7xl mx-auto">
+        <Link to="/" className="flex items-center">
           <img src="/icon.png" alt="logo" className="w-8 h-8" />
           <h1 className="ml-4 tracking-tighter text-2xl font-bold">Codab</h1>
+        </Link>
+        <div className="hidden md:flex items-center space-x-8">
+          <Link to="/" className="flex items-center gap-2 hover:cursor-pointer">
+            <HomeIcon className="w-5 h-5" />
+            <p>Home</p>
+          </Link>
+          <Link to="/friends" className="flex items-center gap-2 hover:cursor-pointer">
+            <ContactIcon className="w-5 h-5" />
+            <p>Friends</p>
+          </Link>
+          <Link to="/profile" className="hover:cursor-pointer">
+            <CircleUserRoundIcon className="w-8 h-8" />
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              logout();
+            }}
+            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 transition-colors"
+          >
+            <LogOutIcon className="w-5 h-5" />
+            Log Out
+          </button>
         </div>
-      </Link>
-      <div className="flex items-center space-x-8 mr-4">
-        <Link to="/" className="hover:cursor-pointer flex items-center gap-2">
-          <HomeIcon className="w-5 h-5" />
-          <p className="hover:cursor-pointer">Home</p>
-        </Link>
-        <Link to="/friends" className="hover:cursor-pointer flex items-center gap-2">
-          <ContactIcon className="w-5 h-5" />
-          <p className="hover:cursor-pointer">Friends</p>
-        </Link>
-        <Link to="/profile" className="hover:cursor-pointer">
-          <CircleUserRoundIcon className="w-8 h-8 hover:cursor-pointer" />
-        </Link>
         <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            logout();
-          }}
-          className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 transition-colors hover:cursor-pointer"
+          className="md:hidden flex items-center"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Toggle menu"
         >
-          <LogOutIcon className="w-5 h-5" />
-          Log Out
+          {menuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
         </button>
       </div>
-    </div>
+      {menuOpen && (
+        <div className="md:hidden bg-gray-900 px-4 pt-2 pb-4 space-y-2">
+          <Link
+            to="/"
+            className="flex items-center gap-2 hover:cursor-pointer"
+            onClick={() => setMenuOpen(false)}
+          >
+            <HomeIcon className="w-5 h-5" />
+            Home
+          </Link>
+          <Link
+            to="/friends"
+            className="flex items-center gap-2 hover:cursor-pointer"
+            onClick={() => setMenuOpen(false)}
+          >
+            <ContactIcon className="w-5 h-5" />
+            Friends
+          </Link>
+          <Link
+            to="/profile"
+            className="block hover:cursor-pointer"
+            onClick={() => setMenuOpen(false)}
+          >
+            <CircleUserRoundIcon className="w-8 h-8" />
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              logout();
+              setMenuOpen(false);
+            }}
+            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 transition-colors w-full"
+          >
+            <LogOutIcon className="w-5 h-5" />
+            Log Out
+          </button>
+        </div>
+      )}
+    </nav>
   );
 }
