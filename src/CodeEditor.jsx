@@ -25,11 +25,16 @@ export default function CodeEditor({ testCases }) {
       const results = await Promise.all(
         testCases.map(async (testCase) => {
           try {
-            console.log("Sending input to backend:", JSON.stringify(testCase.input));
+            console.log(
+              "Sending input to backend:",
+              JSON.stringify(testCase.input)
+            );
             const response = await axios.post("http://127.0.0.1:5000/execute", {
               script: code,
               language: languageMap[language],
-              input: testCase.input.replace(/],?\s?(\d+)$/, "]\n$1").replace(/\\n/g, "\n"),
+              input: testCase.input
+                .replace(/],?\s?(\d+)$/, "]\n$1")
+                .replace(/\\n/g, "\n"),
             });
 
             const passed =
@@ -63,7 +68,7 @@ export default function CodeEditor({ testCases }) {
   };
 
   return (
-    <div className="flex flex-col w-1/2 items-center">
+    <div className="flex flex-col w-full items-center">
       <div className="flex w-full justify-between items-center mb-2 px-4">
         <select
           className="p-2 bg-gray-300 text-black rounded-lg hover:cursor-pointer"
@@ -75,17 +80,17 @@ export default function CodeEditor({ testCases }) {
           <option value="python">Python</option>
         </select>
         <div className="flex gap-2">
-          <div
+          <button
             className="px-4 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors hover:cursor-pointer"
             onClick={handleRun}
           >
             <PlayIcon className="w-5 h-5" />
-            <button>Run</button>
-          </div>
-          <div className="px-4 py-2 flex items-center gap-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors hover:cursor-pointer">
+            Run
+          </button>
+          <button className="px-4 py-2 flex items-center gap-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors hover:cursor-pointer">
             <SendHorizonalIcon className="w-5 h-5" />
-            <button>Submit</button>
-          </div>
+            Submit
+          </button>
         </div>
       </div>
       <Editor

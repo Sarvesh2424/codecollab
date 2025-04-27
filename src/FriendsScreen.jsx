@@ -230,7 +230,7 @@ export default function FriendsScreen() {
     <div>
       <NavBar />
       <div className="mt-20 p-8">
-        <h1 className="text-4xl text-center p-8 font-bold">Friends</h1>
+        <h1 className="text-5xl text-center p-8 font-bold">Friends</h1>
         <div className="flex flex-col items-center justify-center">
           <div className="relative w-1/2">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

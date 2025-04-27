@@ -37,7 +37,7 @@ export default function NavBar() {
               localStorage.removeItem("token");
               logout();
             }}
-            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 transition-colors"
+            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:cursor-pointer hover:bg-red-600 transition-colors"
           >
             <LogOutIcon className="w-5 h-5" />
             Log Out
@@ -82,7 +82,7 @@ export default function NavBar() {
               logout();
               setMenuOpen(false);
             }}
-            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 transition-colors w-full"
+            className="bg-red-500 px-2 py-1 flex items-center gap-2 rounded-lg hover:bg-red-600 hover:cursor-pointer transition-colors w-full"
           >
             <LogOutIcon className="w-5 h-5" />
             Log Out

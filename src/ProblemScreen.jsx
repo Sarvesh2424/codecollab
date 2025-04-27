@@ -26,6 +26,7 @@ import {
   PhoneIcon,
   CodeIcon,
   PhoneOffIcon,
+  CircleUserRound
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -678,7 +679,7 @@ export default function ProblemScreen() {
                 </button>
               </div>
               {isCode ? (
-                <div>
+                <div className="mt-4 sm:mt-8 ">
                   <h1 className="text-3xl sm:text-4xl font-bold">
                     {problem.title}
                   </h1>
@@ -715,7 +716,7 @@ export default function ProblemScreen() {
                           <p>
                             Input:{" "}
                             <span className="font-medium">
-                              {testCase.input}
+                              {testCase.input.replace("\\n",", ")}
                             </span>
                           </p>
                           <p>
@@ -730,7 +731,7 @@ export default function ProblemScreen() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center">
+                <div className="flex mt-10 flex-col items-center">
                   <h2 className="text-2xl font-medium mb-4">
                     {callStatus === "idle"
                       ? "Video Call"
@@ -751,7 +752,7 @@ export default function ProblemScreen() {
                       />
                       {isVideoOff && (
                         <div className="w-full h-56 bg-gray-200 border rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500">Your Camera is Off</p>
+                          <p className="text-black">Your Camera is Off</p>
                         </div>
                       )}
                       <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 text-sm rounded">
@@ -768,10 +769,10 @@ export default function ProblemScreen() {
                       />
                       {callStatus !== "connected" && (
                         <div className="absolute top-0 left-0 w-full h-56 bg-gray-200 border rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500">
+                          <p className="text-black">
                             {callStatus === "calling"
                               ? "Connecting..."
-                              : "No Remote Video"}
+                              : <CircleUserRound className="h-20 w-20" />}
                           </p>
                         </div>
                       )}
@@ -854,7 +855,7 @@ export default function ProblemScreen() {
                 </div>
               )}
             </div>
-            <div className="sm:flex-1">
+            <div className="sm:flex-1 flex flex-col items-center">
               <CodeEditor testCases={problem.testCases} />
             </div>
           </div>
