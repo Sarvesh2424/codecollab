@@ -43,7 +43,7 @@ export default function Profile() {
       const userDoc = querySnapshot.docs[0];
       const userSolvedProblems = userDoc.data().solvedProblems || [];
       const problemNames = userSolvedProblems.map((problem) => {
-        return problem.name;
+        return [problem.id, problem.title, problem.date];
       });
       setSolvedProblems(problemNames);
       console.log(userDoc.data());
@@ -53,25 +53,35 @@ export default function Profile() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
       <NavBar />
-      <div className="mt-20 p-8 flex flex-col items-center justify-center">
-        <h1 className="text-5xl text-center p-8 font-bold">Profile</h1>
-        <div className="flex flex-col w-1/3 items-start justify-center p-8 rounded-lg">
-          <h2 className="text-3xl text-center p-4 font-bold">Email</h2>
-          <p className="text-xl text-center p-4">{email}</p>
+      <div className="mt-20 p-8 flex flex-col items-center justify-center space-y-10">
+        <h1 className="text-5xl text-center font-extrabold text-gray-900 drop-shadow-md">
+          Profile
+        </h1>
+        <div className="flex flex-col w-full max-w-md items-start justify-center p-8 rounded-xl bg-white shadow-xl">
+          <h2 className="text-3xl text-center p-4 font-bold text-gray-900 border-b border-blue-300 w-full">
+            Email
+          </h2>
+          <p className="text-xl text-center p-4 text-gray-700">{email}</p>
         </div>
-        <div className="flex flex-col w-1/3 items-start justify-center p-8 rounded-lg">
-          <h2 className="text-3xl text-center p-4 font-bold">
+        <div className="flex flex-col w-full max-w-md items-start justify-center p-8 rounded-xl bg-white shadow-xl">
+          <h2 className="text-3xl text-center p-4 font-bold text-gray-900 border-b border-blue-300 w-full">
             Solved Problems
           </h2>
-          <ul className="text-xl text-center p-4">
+          <ul className="text-xl text-gray-700 p-4 w-full space-y-3">
             {solvedProblems.length > 0 ? (
               solvedProblems.map((problem, index) => (
-                <li key={index}>{problem}</li>
+                <div
+                  className="flex justify-between items-center border-b border-gray-200 pb-2"
+                  key={index}
+                >
+                  <li className="font-medium">{problem[1]}</li>
+                  <li className="text-sm text-gray-500">{problem[2]}</li>
+                </div>
               ))
             ) : (
-              <p>No problems solved yet.</p>
+              <p className="text-center text-gray-500">No problems solved yet.</p>
             )}
           </ul>
         </div>

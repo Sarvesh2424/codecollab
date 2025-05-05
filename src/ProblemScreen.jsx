@@ -26,7 +26,8 @@ import {
   PhoneIcon,
   CodeIcon,
   PhoneOffIcon,
-  CircleUserRound
+  CircleUserRound,
+  CircleCheckIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -36,6 +37,8 @@ export default function ProblemScreen() {
   const [problem, setProblem] = useState(null);
   const [email, setEmail] = useState(null);
   const [name, setName] = useState(null);
+  const [solvedProblems, setSolvedProblems] = useState([]);
+  const [isSolved, setIsSolved] = useState(false);
   const { id } = useParams();
   const db = getFirestore();
   const auth = getAuth();
@@ -74,6 +77,7 @@ export default function ProblemScreen() {
     }
     setEmail(jwtDecode(token).email);
     setName(jwtDecode(token).email.split("@")[0]);
+    fetchSolvedProblems(jwtDecode(token).email);
     loadUserData(jwtDecode(token).email);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -632,6 +636,27 @@ export default function ProblemScreen() {
     setIsVideoOff(!isVideoOff);
   };
 
+  async function fetchSolvedProblems(email) {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const userSolvedProblems = userDoc.data().solvedProblems || [];
+      const problemNames = userSolvedProblems.map((problem) => {
+        if (problem.id === id) {
+          setIsSolved(true);
+        }
+        return problem.name;
+      });
+      setSolvedProblems(problemNames);
+      console.log(userDoc.data());
+    } else {
+      console.log("No user document found for:", email);
+    }
+  }
+
   return (
     <div>
       <NavBar />
@@ -680,8 +705,14 @@ export default function ProblemScreen() {
               </div>
               {isCode ? (
                 <div className="mt-4 sm:mt-8 ">
-                  <h1 className="text-3xl sm:text-4xl font-bold">
+                  <h1 className="text-3xl flex justify-between items-center sm:text-4xl font-bold">
                     {problem.title}
+                    {isSolved && (
+                      <div className="text-green-500 mr-20 text-lg font-normal flex items-center gap-2 ml-2">
+                        <CircleCheckIcon />
+                        Solved
+                      </div>
+                    )}
                   </h1>
                   <p className="mt-4 sm:mt-8 text-lg sm:text-xl">
                     {problem.description}
@@ -716,7 +747,7 @@ export default function ProblemScreen() {
                           <p>
                             Input:{" "}
                             <span className="font-medium">
-                              {testCase.input.replace("\\n",", ")}
+                              {testCase.input.replace("\\n", ", ")}
                             </span>
                           </p>
                           <p>
@@ -770,9 +801,11 @@ export default function ProblemScreen() {
                       {callStatus !== "connected" && (
                         <div className="absolute top-0 left-0 w-full h-56 bg-gray-200 border rounded-lg flex items-center justify-center">
                           <p className="text-black">
-                            {callStatus === "calling"
-                              ? "Connecting..."
-                              : <CircleUserRound className="h-20 w-20" />}
+                            {callStatus === "calling" ? (
+                              "Connecting..."
+                            ) : (
+                              <CircleUserRound className="h-20 w-20" />
+                            )}
                           </p>
                         </div>
                       )}
@@ -856,7 +889,13 @@ export default function ProblemScreen() {
               )}
             </div>
             <div className="sm:flex-1 flex flex-col items-center">
-              <CodeEditor testCases={problem.testCases} />
+              <CodeEditor
+                testCases={problem.testCases}
+                id={problem.id}
+                title={problem.title}
+                isSolved={isSolved}
+                setIsSolved={setIsSolved}
+              />
             </div>
           </div>
         </div>

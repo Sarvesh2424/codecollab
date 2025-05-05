@@ -1,13 +1,18 @@
+import NavBar from "./NavBar";
+
 export default function NotFoundScreen() {
   return (
-    <div className="w-full bg-gray-950 flex justify-between items-center h-screen">
-      <div className="w-1/3 h-1/3 mx-auto p-8 flex flex-col justify-center gap-8 bg-white rounded-xl shadow-xl">
-        <h1 className="text-black text-center text-4xl font-bold">
-          404 Not Found
-        </h1>
-        <p className="text-black text-center">
-          The page you are looking for does not exist.
-        </p>
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white flex flex-col">
+      <NavBar />
+      <div className="flex-grow flex justify-center items-center p-8">
+        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-xl text-center">
+          <h1 className="text-black text-5xl font-extrabold mb-4 drop-shadow-md">
+            404 Not Found
+          </h1>
+          <p className="text-gray-700 text-lg">
+            The page you are looking for does not exist.
+          </p>
+        </div>
       </div>
     </div>
   );

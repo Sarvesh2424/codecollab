@@ -77,23 +77,21 @@ export default function Dashboard() {
   const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
       <NavBar />
       <div className="max-w-7xl mt-10 mx-auto px-4 sm:px-6 lg:px-8">
         <div className="pt-20 pb-6">
-          <h1 className="text-5xl font-semibold text-gray-900">
+          <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow-md">
             Welcome, {name || "Coder"}!
           </h1>
-          <p className="mt-2 text-lg text-gray-600">
+          <p className="mt-2 text-lg text-gray-700">
             Ready to collab and code some problems?
           </p>
         </div>
 
-        <div className="bg-black mb-10 mt-5 rounded-lg shadow-2xl overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 flex justify-between items-center flex-wrap gap-4">
-            <h2 className="text-2xl text-white">
-              Problems
-            </h2>
+        <div className="bg-white mb-10 mt-5 rounded-xl shadow-xl overflow-hidden">
+          <div className="px-6 py-5 sm:px-8 flex justify-between items-center flex-wrap gap-4 border-b border-gray-200">
+            <h2 className="text-2xl font-semibold text-gray-900">Problems</h2>
             <div className="flex items-center">
               <input
                 type="text"
@@ -103,41 +101,39 @@ export default function Dashboard() {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2 border border-gray-300 bg-white rounded-md focus:outline-none focus:ring-2"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               />
             </div>
           </div>
 
           {loading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
             </div>
           ) : filteredProblems.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-white">
-                No problems found matching your criteria.
-              </p>
+            <div className="text-center py-12 text-gray-600">
+              No problems found matching your criteria.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+                <thead className="bg-indigo-50">
                   <tr>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-semibold text-black uppercase tracking-wider"
                     >
                       Title
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-semibold text-black uppercase tracking-wider"
                     >
                       Difficulty
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-semibold text-black uppercase tracking-wider"
                     >
                       Tags
                     </th>
@@ -145,18 +141,21 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentProblems.map((problem) => (
-                    <tr key={problem.id} className="hover:bg-gray-50">
+                    <tr
+                      key={problem.id}
+                      className="hover:bg-indigo-50 transition-colors"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link
                           to={`/problem/${problem.id}`}
-                          className="text-black hover:text-blue-500 font-medium transition-colors"
+                          className="text-black hover:text-blue-600 font-medium transition-colors"
                         >
                           {problem.title}
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                             problem.difficulty === "Easy"
                               ? "bg-green-100 text-green-800"
                               : problem.difficulty === "Medium"
@@ -168,12 +167,12 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-2">
                           {problem.tags
                             ? problem.tags.map((tag, idx) => (
                                 <span
                                   key={idx}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                  className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-indigo-100 text-indigo-800"
                                 >
                                   {tag}
                                 </span>
@@ -189,7 +188,7 @@ export default function Dashboard() {
           )}
 
           {!loading && filteredProblems.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="px-6 py-4 bg-white flex items-center justify-between border-t border-gray-200 sm:px-8 rounded-b-xl">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={prevPage}
@@ -197,7 +196,7 @@ export default function Dashboard() {
                   className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
                     currentPage === 1
                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
+                      : "bg-white text-black hover:bg-indigo-50"
                   }`}
                 >
                   Previous
@@ -208,7 +207,7 @@ export default function Dashboard() {
                   className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
                     currentPage === totalPages
                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
+                      : "bg-white text-black hover:bg-indigo-50"
                   }`}
                 >
                   Next
@@ -218,15 +217,12 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-700">
                     Showing{" "}
-                    <span className="font-medium">{indexOfFirstItem + 1}</span>{" "}
+                    <span className="font-semibold">{indexOfFirstItem + 1}</span>{" "}
                     to{" "}
-                    <span className="font-medium">
+                    <span className="font-semibold">
                       {Math.min(indexOfLastItem, filteredProblems.length)}
                     </span>{" "}
-                    of{" "}
-                    <span className="font-medium">
-                      {filteredProblems.length}
-                    </span>{" "}
+                    of <span className="font-semibold">{filteredProblems.length}</span>{" "}
                     results
                   </p>
                 </div>
@@ -241,7 +237,7 @@ export default function Dashboard() {
                       className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
                         currentPage === 1
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-white text-gray-500 hover:bg-gray-50"
+                          : "bg-white text-indigo-500 hover:bg-indigo-50"
                       }`}
                     >
                       <span className="sr-only">Previous</span>
@@ -261,8 +257,8 @@ export default function Dashboard() {
                             onClick={() => paginate(number + 1)}
                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                               currentPage === number + 1
-                                ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
-                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                ? "z-10 bg-indigo-100 border-indigo-500 text-indigo-600"
+                                : "bg-white border-gray-300 text-gray-500 hover:bg-indigo-50"
                             }`}
                           >
                             {number + 1}
@@ -290,7 +286,7 @@ export default function Dashboard() {
                       className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
                         currentPage === totalPages
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-white text-gray-500 hover:bg-gray-50"
+                          : "bg-white text-indigo-500 hover:bg-indigo-50"
                       }`}
                     >
                       <span className="sr-only">Next</span>
@@ -303,29 +299,27 @@ export default function Dashboard() {
           )}
 
           {!loading && filteredProblems.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
-              <div className="flex items-center justify-end">
-                <label
-                  htmlFor="itemsPerPage"
-                  className="text-sm text-gray-700 mr-2"
-                >
-                  Problems per page:
-                </label>
-                <select
-                  id="itemsPerPage"
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="mt-1 block w-24 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </div>
+            <div className="px-6 py-3 bg-white border-t border-gray-200 sm:px-8 rounded-b-xl flex items-center justify-end">
+              <label
+                htmlFor="itemsPerPage"
+                className="text-sm text-gray-700 mr-3 font-medium"
+              >
+                Problems per page:
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="mt-1 block w-24 pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
             </div>
           )}
         </div>

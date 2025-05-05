@@ -65,7 +65,7 @@ export default function Register({ setUser }) {
   };
 
   return (
-    <div className="w-full bg-gray-950 flex justify-center items-center h-screen">
+    <div className="w-full bg-gradient-to-r from-black via-gray-900 to-blue-900 flex justify-center items-center h-screen">
       <div className="w-1/2">
         <h1 className="text-white text-7xl flex gap-2 justify-center tracking-tight font-bold text-center mb-4">
           Welcome to <div className="text-blue-500">Codab</div>
@@ -75,7 +75,7 @@ export default function Register({ setUser }) {
         </p>
       </div>
       <div className="w-96 mx-auto p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-black text-center mb-6 text-4xl font-bold">
+        <h1 className="mb-6 text-4xl text-center font-extrabold text-gray-900 drop-shadow-md">
           Register
         </h1>
         <form onSubmit={handleRegister}>

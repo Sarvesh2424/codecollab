@@ -39,7 +39,7 @@ export default function Login() {
   };
 
   return (
-    <div className="w-full bg-gray-950 flex justify-between items-center h-screen">
+    <div className="w-full bg-gradient-to-r from-black via-gray-900 to-blue-900 flex justify-between items-center h-screen">
       <div className="w-1/2">
         <h1 className="text-white text-7xl flex gap-2 justify-center tracking-tight font-bold text-center mb-4">
           Welcome to <div className="text-blue-500">Codab</div>

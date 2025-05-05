@@ -229,9 +229,11 @@ export default function FriendsScreen() {
   return (
     <div>
       <NavBar />
-      <div className="mt-20 p-8">
-        <h1 className="text-5xl text-center p-8 font-bold">Friends</h1>
-        <div className="flex flex-col items-center justify-center">
+      <div className="mt-20 p-8 bg-gradient-to-b from-gray-100 to-white">
+        <h1 className="text-5xl text-center font-extrabold text-gray-900 drop-shadow-md">
+          Friends
+        </h1>
+        <div className="mt-10 flex flex-col items-center justify-center">
           <div className="relative w-1/2">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <SearchIcon className="w-5 h-5 text-gray-400" />
