@@ -70,7 +70,7 @@ export default function CodeEditor({
               "Sending input to backend:",
               JSON.stringify(testCase.input)
             );
-            const response = await axios.post("http://127.0.0.1:5000/execute", {
+            const response = await axios.post("https://jdoodle-backend.onrender.com/execute", {
               script: code,
               language: languageMap[language],
               input: testCase.input

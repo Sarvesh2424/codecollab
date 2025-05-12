@@ -28,6 +28,7 @@ import {
   PhoneOffIcon,
   CircleUserRound,
   CircleCheckIcon,
+  InfoIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -51,11 +52,13 @@ export default function ProblemScreen() {
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
+  const remoteStream = useRef(null); // Add reference to store remote stream
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
+  const [callActive, setCallActive] = useState(false); // New state to track if call is active even when in code view
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -106,7 +109,8 @@ export default function ProblemScreen() {
     let mediaCleanup;
 
     const initializeMedia = async () => {
-      if (!isCode) {
+      // Only initialize media when in call view or when call is active
+      if (!isCode || callActive) {
         try {
           console.log("Initializing media...");
           const constraints = {
@@ -114,11 +118,15 @@ export default function ProblemScreen() {
             audio: true,
           };
 
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          localStream.current = stream;
+          // Only get new media if we don't already have it
+          if (!localStream.current) {
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            localStream.current = stream;
+          }
 
+          // Update video ref if we're in call view
           if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
+            localVideoRef.current.srcObject = localStream.current;
           }
 
           console.log("Media initialized successfully");
@@ -131,20 +139,10 @@ export default function ProblemScreen() {
 
     initializeMedia();
 
-    mediaCleanup = () => {
-      if (isCode && localStream.current) {
-        console.log("Stopping local media tracks");
-        localStream.current.getTracks().forEach((track) => track.stop());
-        localStream.current = null;
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = null;
-        }
-      }
-    };
+    mediaCleanup = () => {};
 
     return mediaCleanup;
-  }, [isCode, audioOnly]);
+  }, [isCode, audioOnly, callActive]);
 
   useEffect(() => {
     return () => {
@@ -168,6 +166,19 @@ export default function ProblemScreen() {
       }
     };
   }, [db]);
+
+  // Effect to update video elements when switching between views
+  useEffect(() => {
+    // Handle local video when switching views
+    if (localVideoRef.current && localStream.current) {
+      localVideoRef.current.srcObject = localStream.current;
+    }
+    
+    // Handle remote video when switching views
+    if (remoteVideoRef.current && remoteStream.current) {
+      remoteVideoRef.current.srcObject = remoteStream.current;
+    }
+  }, [isCode]);
 
   const createPeerConnection = () => {
     console.log("Creating peer connection");
@@ -207,9 +218,14 @@ export default function ProblemScreen() {
 
     peerConnection.current.ontrack = (event) => {
       console.log("Received remote track", event);
-      if (remoteVideoRef.current && event.streams[0]) {
+      if (event.streams[0]) {
         console.log("Setting remote video stream");
-        remoteVideoRef.current.srcObject = event.streams[0];
+        remoteStream.current = event.streams[0]; // Store the remote stream
+        
+        // Set the remote stream to the video element if it exists
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream.current;
+        }
       }
     };
 
@@ -240,6 +256,7 @@ export default function ProblemScreen() {
       switch (peerConnection.current.connectionState) {
         case "connected":
           setCallStatus("connected");
+          setCallActive(true); // Mark call as active when connected
           toast.success("Call connected!");
           break;
         case "disconnected":
@@ -248,6 +265,7 @@ export default function ProblemScreen() {
           if (callStatus === "connected") {
             toast.error("Call disconnected");
             setCallStatus("idle");
+            setCallActive(false); // Mark call as inactive when disconnected
           }
           break;
         default:
@@ -270,6 +288,7 @@ export default function ProblemScreen() {
       console.log("Starting call to", friendEmail);
       setCallStatus("calling");
       setCurrentPeer(friendEmail);
+      setCallActive(true); // Mark call as active when starting
 
       if (!localStream.current) {
         console.log("Getting media for call...");
@@ -393,6 +412,7 @@ export default function ProblemScreen() {
       toast.error("Failed to start call. Please try again.");
       setCallStatus("idle");
       setCurrentPeer(null);
+      setCallActive(false); // Reset call active flag on error
     }
   };
 
@@ -458,6 +478,7 @@ export default function ProblemScreen() {
       setCallId(incomingCallId);
       setCallStatus("connecting");
       setCurrentPeer(callerEmail);
+      setCallActive(true); // Mark call as active when joining
 
       if (!localStream.current) {
         console.log("Getting media for incoming call...");
@@ -610,9 +631,19 @@ export default function ProblemScreen() {
       peerConnection.current = null;
     }
 
+    // Only stop streams if we're actually ending the call
+    if (localStream.current) {
+      localStream.current.getTracks().forEach((track) => track.stop());
+      localStream.current = null;
+    }
+
+    // Clear the remote stream
+    remoteStream.current = null;
+
     setCallId(null);
     setCallStatus("idle");
     setCurrentPeer(null);
+    setCallActive(false); // Reset call active flag
     callDocRef.current = null;
   };
 
@@ -668,20 +699,7 @@ export default function ProblemScreen() {
             <div className="sm:flex-1">
               <div className="flex space-x-0 sm:space-x-0">
                 <button
-                  onClick={() => {
-                    if (callStatus !== "idle") {
-                      if (
-                        window.confirm(
-                          "You're in an active call. Switch to problem view?"
-                        )
-                      ) {
-                        endCall();
-                        setIsCode(true);
-                      }
-                    } else {
-                      setIsCode(true);
-                    }
-                  }}
+                  onClick={() => setIsCode(true)}
                   className={`px-4 w-36 py-2 ${
                     isCode == true ? "bg-blue-600" : "bg-blue-500"
                   } text-white border border-r-white rounded-l-xl hover:cursor-pointer transition-colors`}
@@ -695,16 +713,32 @@ export default function ProblemScreen() {
                   onClick={() => setIsCode(false)}
                   className={`px-4 w-36 py-2 ${
                     isCode == false ? "bg-blue-600" : "bg-blue-500"
-                  } text-white border border-l-white rounded-r-xl hover:cursor-pointer transition-colors`}
+                  } text-white border border-l-white rounded-r-xl hover:cursor-pointer transition-colors ${
+                    callActive && !isCode ? "" : ""
+                  }`}
                 >
                   <div className="flex justify-center items-center gap-2">
                     <PhoneIcon />
                     Call
+                    {callActive && isCode && (
+                      <span className="ml-1 w-2 h-2 bg-green-400 rounded-full"></span>
+                    )}
                   </div>
                 </button>
               </div>
               {isCode ? (
-                <div className="mt-4 sm:mt-8 ">
+                <div className="mt-4 sm:mt-8">
+                  {callActive && (
+                    <div className="mb-4 p-2 bg-green-100 text-green-800 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PhoneIcon size={16} />
+                        <span>
+                          Call with {currentPeer} is active in the background
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <h1 className="text-3xl flex justify-between items-center sm:text-4xl font-bold">
                     {problem.title}
                     {isSolved && (
@@ -760,6 +794,11 @@ export default function ProblemScreen() {
                       ))}
                     </ul>
                   </div>
+                  <div className="flex mt-10 text-red-500 gap-2">
+                    <InfoIcon />
+                    Note: Use <b>eval()</b> in Python and <b>ScriptEngine</b> in
+                    Java to get array inputs.
+                  </div>
                 </div>
               ) : (
                 <div className="flex mt-10 flex-col items-center">
@@ -790,31 +829,32 @@ export default function ProblemScreen() {
                         You {isMuted && "(Muted)"}
                       </div>
                     </div>
-
-                    <div className="relative w-full">
-                      <video
-                        ref={remoteVideoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full h-56 bg-gray-100 border rounded-lg object-cover"
-                      />
-                      {callStatus !== "connected" && (
-                        <div className="absolute top-0 left-0 w-full h-56 bg-gray-200 border rounded-lg flex items-center justify-center">
-                          <p className="text-black">
-                            {callStatus === "calling" ? (
-                              "Connecting..."
-                            ) : (
-                              <CircleUserRound className="h-20 w-20" />
-                            )}
-                          </p>
-                        </div>
-                      )}
-                      {callStatus === "connected" && (
-                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 text-sm rounded">
-                          {currentPeer}
-                        </div>
-                      )}
-                    </div>
+                    {!isCode && (
+                      <div className="relative w-full">
+                        <video
+                          ref={remoteVideoRef}
+                          autoPlay
+                          playsInline
+                          className="w-full h-56 bg-gray-100 border rounded-lg object-cover"
+                        />
+                        {callStatus !== "connected" && (
+                          <div className="absolute top-0 left-0 w-full h-56 bg-gray-200 border rounded-lg flex items-center justify-center">
+                            <p className="text-black">
+                              {callStatus === "calling" ? (
+                                "Connecting..."
+                              ) : (
+                                <CircleUserRound className="h-20 w-20" />
+                              )}
+                            </p>
+                          </div>
+                        )}
+                        {callStatus === "connected" && (
+                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 text-sm rounded">
+                            {currentPeer}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 flex justify-center gap-3">
