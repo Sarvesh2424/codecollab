@@ -52,13 +52,16 @@ export default function ProblemScreen() {
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
-  const remoteStream = useRef(null); // Add reference to store remote stream
+  const remoteStream = useRef(null);
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [remoteIsMuted, setRemoteIsMuted] = useState(false);
+  const [remoteIsVideoOff, setRemoteIsVideoOff] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
-  const [callActive, setCallActive] = useState(false); 
+  const [callActive, setCallActive] = useState(false);
+
   useEffect(() => {
     const fetchProblem = async () => {
       const docRef = doc(db, "codingProblems", id);
@@ -108,7 +111,6 @@ export default function ProblemScreen() {
     let mediaCleanup;
 
     const initializeMedia = async () => {
-      // Only initialize media when in call view or when call is active
       if (!isCode || callActive) {
         try {
           console.log("Initializing media...");
@@ -117,13 +119,13 @@ export default function ProblemScreen() {
             audio: true,
           };
 
-          // Only get new media if we don't already have it
           if (!localStream.current) {
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            const stream = await navigator.mediaDevices.getUserMedia(
+              constraints
+            );
             localStream.current = stream;
           }
 
-          // Update video ref if we're in call view
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStream.current;
           }
@@ -166,18 +168,69 @@ export default function ProblemScreen() {
     };
   }, [db]);
 
-  // Effect to update video elements when switching between views
   useEffect(() => {
-    // Handle local video when switching views
     if (localVideoRef.current && localStream.current) {
       localVideoRef.current.srcObject = localStream.current;
     }
-    
-    // Handle remote video when switching views
+
     if (remoteVideoRef.current && remoteStream.current) {
       remoteVideoRef.current.srcObject = remoteStream.current;
     }
   }, [isCode]);
+
+  useEffect(() => {
+    if (!callId || !email) return;
+
+    const callDoc = doc(db, "videoCalls", callId);
+    const unsubscribe = onSnapshot(callDoc, (snapshot) => {
+      const data = snapshot.data();
+      if (!data) return;
+
+      if (data.mediaStates) {
+        const participants = Object.keys(data.mediaStates);
+        const remotePeer = participants.find(
+          (participant) => participant !== email
+        );
+
+        if (remotePeer && data.mediaStates[remotePeer]) {
+          const remoteState = data.mediaStates[remotePeer];
+          setRemoteIsMuted(remoteState.isMuted);
+          setRemoteIsVideoOff(remoteState.isVideoOff);
+
+          if (remoteStream.current) {
+            remoteStream.current.getVideoTracks().forEach((track) => {
+              track.enabled = !remoteState.isVideoOff;
+            });
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [callId, email, db]);
+
+  const updateMediaState = async () => {
+    if (!callId || !email) return;
+
+    try {
+      const callDoc = doc(db, "videoCalls", callId);
+      const callData = (await getDoc(callDoc)).data();
+
+      if (!callData) return;
+
+      const mediaStates = callData.mediaStates || {};
+      mediaStates[email] = {
+        isMuted,
+        isVideoOff,
+        updatedAt: serverTimestamp(),
+      };
+
+      await updateDoc(callDoc, { mediaStates });
+      console.log("Media state updated in Firestore");
+    } catch (error) {
+      console.error("Error updating media state:", error);
+    }
+  };
 
   const createPeerConnection = () => {
     console.log("Creating peer connection");
@@ -219,9 +272,8 @@ export default function ProblemScreen() {
       console.log("Received remote track", event);
       if (event.streams[0]) {
         console.log("Setting remote video stream");
-        remoteStream.current = event.streams[0]; // Store the remote stream
-        
-        // Set the remote stream to the video element if it exists
+        remoteStream.current = event.streams[0]; 
+
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
@@ -255,8 +307,9 @@ export default function ProblemScreen() {
       switch (peerConnection.current.connectionState) {
         case "connected":
           setCallStatus("connected");
-          setCallActive(true); // Mark call as active when connected
+          setCallActive(true);
           toast.success("Call connected!");
+          updateMediaState();
           break;
         case "disconnected":
         case "failed":
@@ -264,7 +317,7 @@ export default function ProblemScreen() {
           if (callStatus === "connected") {
             toast.error("Call disconnected");
             setCallStatus("idle");
-            setCallActive(false); // Mark call as inactive when disconnected
+            setCallActive(false); 
           }
           break;
         default:
@@ -287,7 +340,7 @@ export default function ProblemScreen() {
       console.log("Starting call to", friendEmail);
       setCallStatus("calling");
       setCurrentPeer(friendEmail);
-      setCallActive(true); // Mark call as active when starting
+      setCallActive(true);
 
       if (!localStream.current) {
         console.log("Getting media for call...");
@@ -329,6 +382,13 @@ export default function ProblemScreen() {
         receiver: friendEmail,
         status: "pending",
         ended: false,
+        mediaStates: {
+          [email]: {
+            isMuted: false,
+            isVideoOff: false,
+            updatedAt: serverTimestamp(),
+          },
+        },
       };
 
       console.log("Saving call data to Firestore");
@@ -411,7 +471,7 @@ export default function ProblemScreen() {
       toast.error("Failed to start call. Please try again.");
       setCallStatus("idle");
       setCurrentPeer(null);
-      setCallActive(false); // Reset call active flag on error
+      setCallActive(false);
     }
   };
 
@@ -477,7 +537,7 @@ export default function ProblemScreen() {
       setCallId(incomingCallId);
       setCallStatus("connecting");
       setCurrentPeer(callerEmail);
-      setCallActive(true); // Mark call as active when joining
+      setCallActive(true);
 
       if (!localStream.current) {
         console.log("Getting media for incoming call...");
@@ -507,9 +567,17 @@ export default function ProblemScreen() {
         return;
       }
 
+      const mediaStates = callData.mediaStates || {};
+      mediaStates[email] = {
+        isMuted: false,
+        isVideoOff: false,
+        updatedAt: serverTimestamp(),
+      };
+
       await updateDoc(callDoc, {
         status: "accepted",
         acceptedAt: serverTimestamp(),
+        mediaStates,
       });
 
       if (callData.offer) {
@@ -630,23 +698,23 @@ export default function ProblemScreen() {
       peerConnection.current = null;
     }
 
-    // Only stop streams if we're actually ending the call
     if (localStream.current) {
       localStream.current.getTracks().forEach((track) => track.stop());
       localStream.current = null;
     }
 
-    // Clear the remote stream
     remoteStream.current = null;
 
     setCallId(null);
     setCallStatus("idle");
     setCurrentPeer(null);
-    setCallActive(false); // Reset call active flag
+    setCallActive(false);
     callDocRef.current = null;
+    setRemoteIsMuted(false);
+    setRemoteIsVideoOff(false);
   };
 
-  const toggleMute = () => {
+  const toggleMute = async () => {
     if (!localStream.current) return;
 
     localStream.current.getAudioTracks().forEach((track) => {
@@ -654,9 +722,11 @@ export default function ProblemScreen() {
     });
 
     setIsMuted(!isMuted);
+
+    await updateMediaState();
   };
 
-  const toggleVideo = () => {
+  const toggleVideo = async () => {
     if (!localStream.current) return;
 
     localStream.current.getVideoTracks().forEach((track) => {
@@ -664,6 +734,7 @@ export default function ProblemScreen() {
     });
 
     setIsVideoOff(!isVideoOff);
+    await updateMediaState();
   };
 
   async function fetchSolvedProblems(email) {
@@ -686,7 +757,6 @@ export default function ProblemScreen() {
       console.log("No user document found for:", email);
     }
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
@@ -737,7 +807,7 @@ export default function ProblemScreen() {
                       </div>
                     </div>
                   )}
-                  
+
                   <h1 className="text-3xl flex justify-between text-indigo-900 items-center sm:text-4xl font-bold">
                     {problem.title}
                     {isSolved && (
@@ -795,7 +865,8 @@ export default function ProblemScreen() {
                   </div>
                   <div className="flex mt-10 text-red-500 gap-2">
                     <InfoIcon />
-                    Note: Currently supports only <b>Python</b>, more languages coming soon!
+                    Note: Currently supports only <b>Python</b>, more languages
+                    coming soon!
                   </div>
                   <div className="flex mt-5 text-red-500 gap-2">
                     <InfoIcon />
