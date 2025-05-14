@@ -55,8 +55,8 @@ export default function ProblemScreen() {
   const remoteStream = useRef(null); // Add reference to store remote stream
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isVideoOff, setIsVideoOff] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
   const [callActive, setCallActive] = useState(false); 
   useEffect(() => {
