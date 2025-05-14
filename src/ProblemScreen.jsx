@@ -57,8 +57,11 @@ export default function ProblemScreen() {
   const callListenerUnsubscribe = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [remoteVideoOff, setRemoteVideoOff] = useState(false);
+  const [remoteMuted, setRemoteMuted] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
   const [callActive, setCallActive] = useState(false);
+
   useEffect(() => {
     const fetchProblem = async () => {
       const docRef = doc(db, "codingProblems", id);
@@ -180,6 +183,68 @@ export default function ProblemScreen() {
       remoteVideoRef.current.srcObject = remoteStream.current;
     }
   }, [isCode]);
+
+  // Update media settings in Firestore when they change
+  useEffect(() => {
+    if (callId && callStatus === "connected") {
+      const updateMediaSettings = async () => {
+        try {
+          const callDoc = doc(db, "videoCalls", callId);
+
+          // Update the document based on who we are in the call
+          const isCallerField = email === (await getDoc(callDoc)).data().caller;
+          const mediaField = isCallerField ? "callerMedia" : "receiverMedia";
+
+          await updateDoc(callDoc, {
+            [mediaField]: {
+              videoOff: isVideoOff,
+              muted: isMuted,
+              timestamp: serverTimestamp(),
+            },
+          });
+        } catch (error) {
+          console.error("Error updating media settings:", error);
+        }
+      };
+
+      updateMediaSettings();
+    }
+  }, [isMuted, isVideoOff, callId, callStatus, db, email]);
+
+  // Listen for remote peer's media settings changes
+  useEffect(() => {
+    if (callId && callStatus === "connected") {
+      const listenToMediaChanges = async () => {
+        try {
+          const callDoc = doc(db, "videoCalls", callId);
+          const callData = (await getDoc(callDoc)).data();
+
+          // Determine which field to listen to based on who we are
+          const isCallerField = email === callData.caller;
+          const mediaField = isCallerField ? "receiverMedia" : "callerMedia";
+
+          const unsubscribe = onSnapshot(callDoc, (snapshot) => {
+            const data = snapshot.data();
+            if (data && data[mediaField]) {
+              setRemoteVideoOff(data[mediaField].videoOff);
+              setRemoteMuted(data[mediaField].muted);
+            }
+          });
+
+          return unsubscribe;
+        } catch (error) {
+          console.error("Error setting up media changes listener:", error);
+          return () => {};
+        }
+      };
+
+      const unsubscribeMediaChanges = listenToMediaChanges();
+
+      return () => {
+        unsubscribeMediaChanges.then((unsubscribe) => unsubscribe());
+      };
+    }
+  }, [callId, callStatus, db, email]);
 
   const createPeerConnection = () => {
     console.log("Creating peer connection");
@@ -331,6 +396,16 @@ export default function ProblemScreen() {
         receiver: friendEmail,
         status: "pending",
         ended: false,
+        callerMedia: {
+          videoOff: isVideoOff,
+          muted: isMuted,
+          timestamp: serverTimestamp(),
+        },
+        receiverMedia: {
+          videoOff: false,
+          muted: false,
+          timestamp: serverTimestamp(),
+        },
       };
 
       console.log("Saving call data to Firestore");
@@ -373,6 +448,12 @@ export default function ProblemScreen() {
           } catch (error) {
             console.error("Error setting remote description:", error);
           }
+        }
+
+        // Handle remote media settings updates
+        if (data?.receiverMedia) {
+          setRemoteVideoOff(data.receiverMedia.videoOff);
+          setRemoteMuted(data.receiverMedia.muted);
         }
       });
 
@@ -509,10 +590,22 @@ export default function ProblemScreen() {
         return;
       }
 
+      // Update call doc with initial media state
       await updateDoc(callDoc, {
         status: "accepted",
         acceptedAt: serverTimestamp(),
+        receiverMedia: {
+          videoOff: isVideoOff,
+          muted: isMuted,
+          timestamp: serverTimestamp(),
+        },
       });
+
+      // Read caller's media state
+      if (callData.callerMedia) {
+        setRemoteVideoOff(callData.callerMedia.videoOff);
+        setRemoteMuted(callData.callerMedia.muted);
+      }
 
       if (callData.offer) {
         console.log("Setting remote description from offer");
@@ -568,6 +661,12 @@ export default function ProblemScreen() {
           console.log("Call was marked as ended");
           toast.info("Call ended");
           cleanupCall();
+        }
+
+        // Handle remote media settings updates
+        if (data?.callerMedia) {
+          setRemoteVideoOff(data.callerMedia.videoOff);
+          setRemoteMuted(data.callerMedia.muted);
         }
       });
 
@@ -645,6 +744,8 @@ export default function ProblemScreen() {
     setCallStatus("idle");
     setCurrentPeer(null);
     setCallActive(false); // Reset call active flag
+    setRemoteVideoOff(false);
+    setRemoteMuted(false);
     callDocRef.current = null;
   };
 
