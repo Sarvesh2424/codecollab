@@ -546,8 +546,10 @@ export default function ProblemScreen() {
           console.log("Received call request from", data.caller);
           toast(
             (t) => (
-              <span className="flex items-center gap-2">
-                <PhoneIcon /> Incoming call from <b>{data.caller}</b>
+              <span className="flex flex-col">
+                <span className="flex items-center gap-2">
+                  <PhoneIcon /> Incoming call from <b>{data.caller}</b>
+                </span>
                 <br />
                 <div className="flex gap-2 mt-2">
                   <button
