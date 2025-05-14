@@ -107,11 +107,10 @@ export default function ProblemScreen() {
     }
   };
 
+  // Initialize media when moving to call view or when call becomes active
   useEffect(() => {
-    let mediaCleanup;
-
     const initializeMedia = async () => {
-      if (!isCode || callActive) {
+      if ((!isCode || callActive) && !localStream.current) {
         try {
           console.log("Initializing media...");
           const constraints = {
@@ -119,16 +118,21 @@ export default function ProblemScreen() {
             audio: true,
           };
 
-          if (!localStream.current) {
-            const stream = await navigator.mediaDevices.getUserMedia(
-              constraints
-            );
-            localStream.current = stream;
-          }
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          localStream.current = stream;
 
           if (localVideoRef.current) {
-            localVideoRef.current.srcObject = localStream.current;
+            localVideoRef.current.srcObject = stream;
           }
+
+          // Make sure tracks start in correct state
+          stream.getAudioTracks().forEach((track) => {
+            track.enabled = !isMuted;
+          });
+
+          stream.getVideoTracks().forEach((track) => {
+            track.enabled = !isVideoOff;
+          });
 
           console.log("Media initialized successfully");
         } catch (error) {
@@ -139,12 +143,9 @@ export default function ProblemScreen() {
     };
 
     initializeMedia();
+  }, [isCode, audioOnly, callActive, isMuted, isVideoOff]);
 
-    mediaCleanup = () => {};
-
-    return mediaCleanup;
-  }, [isCode, audioOnly, callActive]);
-
+  // Clean up resources when component unmounts
   useEffect(() => {
     return () => {
       if (callListenerUnsubscribe.current) {
@@ -166,8 +167,9 @@ export default function ProblemScreen() {
         setDoc(callDoc, { ended: true }, { merge: true }).catch(console.error);
       }
     };
-  }, [db]);
+  }, [db, callId]);
 
+  // Ensure video elements have proper references
   useEffect(() => {
     if (localVideoRef.current && localStream.current) {
       localVideoRef.current.srcObject = localStream.current;
@@ -178,14 +180,24 @@ export default function ProblemScreen() {
     }
   }, [isCode]);
 
+  // Listen for remote media state changes
   useEffect(() => {
     if (!callId || !email) return;
 
     const callDoc = doc(db, "videoCalls", callId);
-    const unsubscribe = onSnapshot(callDoc, (snapshot) => {
+    const unsubscribe = onSnapshot(callDoc, async (snapshot) => {
       const data = snapshot.data();
       if (!data) return;
 
+      // Check if call was ended
+      if (data.ended) {
+        console.log("Call was marked as ended");
+        toast.info("Call ended");
+        cleanupCall();
+        return;
+      }
+
+      // Monitor media states
       if (data.mediaStates) {
         const participants = Object.keys(data.mediaStates);
         const remotePeer = participants.find(
@@ -196,14 +208,6 @@ export default function ProblemScreen() {
           const remoteState = data.mediaStates[remotePeer];
           setRemoteIsMuted(remoteState.isMuted);
           setRemoteIsVideoOff(remoteState.isVideoOff);
-
-          // Properly handle remote video state
-          if (remoteStream.current) {
-            const videoTracks = remoteStream.current.getVideoTracks();
-            if (videoTracks.length > 0) {
-              videoTracks[0].enabled = !remoteState.isVideoOff;
-            }
-          }
         }
       }
     });
@@ -237,10 +241,18 @@ export default function ProblemScreen() {
   const createPeerConnection = () => {
     console.log("Creating peer connection");
 
+    // Clean up any existing connection
     if (peerConnection.current) {
       peerConnection.current.close();
     }
 
+    // Initialize remote stream
+    remoteStream.current = new MediaStream();
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream.current;
+    }
+
+    // Create new connection with ICE servers
     peerConnection.current = new RTCPeerConnection({
       iceServers: [
         {
@@ -263,6 +275,7 @@ export default function ProblemScreen() {
 
     console.log("Peer connection created");
 
+    // Add local tracks to the connection
     if (localStream.current) {
       console.log("Adding local tracks to peer connection");
       localStream.current.getTracks().forEach((track) => {
@@ -270,29 +283,25 @@ export default function ProblemScreen() {
       });
     }
 
+    // Handle incoming tracks
     peerConnection.current.ontrack = (event) => {
       console.log("Received remote track", event);
       if (event.streams && event.streams[0]) {
         console.log("Setting remote video stream");
 
-        // Clean up previous stream if it exists
-        if (remoteStream.current) {
-          remoteStream.current.getTracks().forEach((track) => track.stop());
-        }
+        // Add the track to our remote stream
+        event.streams[0].getTracks().forEach((track) => {
+          remoteStream.current.addTrack(track);
+        });
 
-        remoteStream.current = event.streams[0];
-
-        // Apply current remote media state
-        if (remoteStream.current.getVideoTracks().length > 0) {
-          remoteStream.current.getVideoTracks()[0].enabled = !remoteIsVideoOff;
-        }
-
+        // Ensure remote video element shows the stream
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
       }
     };
 
+    // Handle ICE candidates
     peerConnection.current.onicecandidate = async (event) => {
       if (event.candidate && callDocRef.current) {
         console.log("Generated local ICE candidate", event.candidate);
@@ -312,6 +321,7 @@ export default function ProblemScreen() {
       }
     };
 
+    // Handle connection state changes
     peerConnection.current.onconnectionstatechange = () => {
       console.log(
         "Connection state changed:",
@@ -338,6 +348,7 @@ export default function ProblemScreen() {
       }
     };
 
+    // Log ICE connection state changes
     peerConnection.current.oniceconnectionstatechange = () => {
       console.log(
         "ICE connection state:",
@@ -355,6 +366,7 @@ export default function ProblemScreen() {
       setCurrentPeer(friendEmail);
       setCallActive(true);
 
+      // Ensure we have media
       if (!localStream.current) {
         console.log("Getting media for call...");
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -368,16 +380,17 @@ export default function ProblemScreen() {
         }
       }
 
+      // Create peer connection
       const pc = createPeerConnection();
 
+      // Generate a call ID and reference the call document
       const newCallId = `call_${Math.random().toString(36).substring(2, 15)}`;
       setCallId(newCallId);
 
       const callDoc = doc(db, "videoCalls", newCallId);
       callDocRef.current = callDoc;
 
-      const callerCandidatesCollection = collection(callDoc, "candidates");
-
+      // Create the offer
       console.log("Creating offer");
       const offerDescription = await pc.createOffer({
         offerToReceiveAudio: true,
@@ -385,6 +398,7 @@ export default function ProblemScreen() {
       });
       await pc.setLocalDescription(offerDescription);
 
+      // Store call data in Firestore
       const callData = {
         offer: {
           type: offerDescription.type,
@@ -407,6 +421,7 @@ export default function ProblemScreen() {
       console.log("Saving call data to Firestore");
       await setDoc(callDoc, callData);
 
+      // Create a call request notification
       await addDoc(collection(db, "videoCallRequests"), {
         caller: email,
         receiver: friendEmail,
@@ -415,9 +430,11 @@ export default function ProblemScreen() {
         timestamp: serverTimestamp(),
       });
 
+      // Listen for answer and call state changes
       console.log("Setting up listeners for remote answer and candidates");
       const unsubscribe = onSnapshot(callDoc, async (snapshot) => {
         const data = snapshot.data();
+        if (!data) return;
 
         if (data?.ended) {
           console.log("Call was marked as ended");
@@ -435,6 +452,7 @@ export default function ProblemScreen() {
           return;
         }
 
+        // Process the answer when it's received
         if (!pc.currentRemoteDescription && data?.answer) {
           console.log("Received remote answer");
           try {
@@ -447,23 +465,32 @@ export default function ProblemScreen() {
         }
       });
 
+      // Listen for ICE candidates
       console.log("Setting up listener for remote ICE candidates");
+      const candidatesCollection = collection(callDoc, "candidates");
       const candidatesUnsubscribe = onSnapshot(
-        callerCandidatesCollection,
+        candidatesCollection,
         (snapshot) => {
           snapshot.docChanges().forEach(async (change) => {
             if (change.type === "added") {
               const data = change.doc.data();
-              if (data && data.source !== email && pc.remoteDescription) {
-                console.log("Adding remote ICE candidate");
+              if (data && data.source !== email) {
+                console.log("Adding remote ICE candidate", data);
                 try {
-                  await pc.addIceCandidate(
-                    new RTCIceCandidate({
-                      candidate: data.candidate,
-                      sdpMid: data.sdpMid,
-                      sdpMLineIndex: data.sdpMLineIndex,
-                    })
-                  );
+                  // Only add candidate if we have a remote description
+                  if (pc.remoteDescription) {
+                    await pc.addIceCandidate(
+                      new RTCIceCandidate({
+                        candidate: data.candidate,
+                        sdpMid: data.sdpMid,
+                        sdpMLineIndex: data.sdpMLineIndex,
+                      })
+                    );
+                  } else {
+                    console.log(
+                      "Skipping ICE candidate - no remote description yet"
+                    );
+                  }
                 } catch (error) {
                   console.error("Error adding received ICE candidate:", error);
                 }
@@ -488,6 +515,7 @@ export default function ProblemScreen() {
     }
   };
 
+  // Listen for incoming calls
   useEffect(() => {
     if (!email) return;
 
@@ -552,6 +580,7 @@ export default function ProblemScreen() {
       setCurrentPeer(callerEmail);
       setCallActive(true);
 
+      // Ensure we have media
       if (!localStream.current) {
         console.log("Getting media for incoming call...");
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -565,11 +594,14 @@ export default function ProblemScreen() {
         }
       }
 
+      // Create peer connection
       const pc = createPeerConnection();
 
+      // Reference the call document
       const callDoc = doc(db, "videoCalls", incomingCallId);
       callDocRef.current = callDoc;
 
+      // Get call data
       const callData = (await getDoc(callDoc)).data();
       console.log("Retrieved call data", callData);
 
@@ -580,6 +612,7 @@ export default function ProblemScreen() {
         return;
       }
 
+      // Update call status and media state
       const mediaStates = callData.mediaStates || {};
       mediaStates[email] = {
         isMuted: false,
@@ -593,16 +626,19 @@ export default function ProblemScreen() {
         mediaStates,
       });
 
+      // Set the remote description from the offer
       if (callData.offer) {
         console.log("Setting remote description from offer");
         await pc.setRemoteDescription(
           new RTCSessionDescription(callData.offer)
         );
 
+        // Create answer
         console.log("Creating answer");
         const answerDescription = await pc.createAnswer();
         await pc.setLocalDescription(answerDescription);
 
+        // Store the answer
         await updateDoc(callDoc, {
           answer: {
             type: answerDescription.type,
@@ -613,6 +649,7 @@ export default function ProblemScreen() {
         console.log("Answer created and saved");
       }
 
+      // Listen for ICE candidates
       const candidatesCollection = collection(callDoc, "candidates");
       console.log("Setting up listener for ICE candidates");
 
@@ -622,16 +659,22 @@ export default function ProblemScreen() {
           snapshot.docChanges().forEach(async (change) => {
             if (change.type === "added") {
               const data = change.doc.data();
-              if (data && data.source !== email && pc.remoteDescription) {
-                console.log("Adding remote ICE candidate");
+              if (data && data.source !== email) {
+                console.log("Adding remote ICE candidate", data);
                 try {
-                  await pc.addIceCandidate(
-                    new RTCIceCandidate({
-                      candidate: data.candidate,
-                      sdpMid: data.sdpMid,
-                      sdpMLineIndex: data.sdpMLineIndex,
-                    })
-                  );
+                  if (pc.remoteDescription) {
+                    await pc.addIceCandidate(
+                      new RTCIceCandidate({
+                        candidate: data.candidate,
+                        sdpMid: data.sdpMid,
+                        sdpMLineIndex: data.sdpMLineIndex,
+                      })
+                    );
+                  } else {
+                    console.log(
+                      "Skipping ICE candidate - no remote description yet"
+                    );
+                  }
                 } catch (error) {
                   console.error("Error adding received ICE candidate:", error);
                 }
@@ -641,6 +684,7 @@ export default function ProblemScreen() {
         }
       );
 
+      // Listen for call end
       const callStatusUnsubscribe = onSnapshot(callDoc, (snapshot) => {
         const data = snapshot.data();
         if (data?.ended) {
@@ -711,24 +755,6 @@ export default function ProblemScreen() {
       peerConnection.current = null;
     }
 
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((track) => track.stop());
-      localStream.current = null;
-    }
-
-    if (remoteStream.current) {
-      remoteStream.current.getTracks().forEach((track) => track.stop());
-      remoteStream.current = null;
-    }
-
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = null;
-    }
-
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
-
     setCallId(null);
     setCallStatus("idle");
     setCurrentPeer(null);
@@ -736,18 +762,37 @@ export default function ProblemScreen() {
     callDocRef.current = null;
     setRemoteIsMuted(false);
     setRemoteIsVideoOff(false);
-    setIsMuted(false);
-    setIsVideoOff(false);
+
+    // Don't stop local streams immediately if we're still in call view
+    if (isCode) {
+      if (localStream.current) {
+        localStream.current.getTracks().forEach((track) => track.stop());
+        localStream.current = null;
+      }
+
+      if (remoteStream.current) {
+        remoteStream.current = null;
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+    }
   };
 
   const toggleMute = async () => {
     if (!localStream.current) return;
 
-    localStream.current.getAudioTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
+    const newMuteState = !isMuted;
+    setIsMuted(newMuteState);
 
-    setIsMuted(!isMuted);
+    localStream.current.getAudioTracks().forEach((track) => {
+      track.enabled = !newMuteState;
+    });
 
     await updateMediaState();
   };
@@ -761,10 +806,6 @@ export default function ProblemScreen() {
     localStream.current.getVideoTracks().forEach((track) => {
       track.enabled = !newVideoState;
     });
-
-    if (localVideoRef.current) {
-      localVideoRef.current.style.display = newVideoState ? "none" : "block";
-    }
 
     await updateMediaState();
   };
@@ -789,6 +830,7 @@ export default function ProblemScreen() {
       console.log("No user document found for:", email);
     }
   }
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
