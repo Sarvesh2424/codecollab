@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Editor } from "@monaco-editor/react";
-import { CheckIcon, PlayIcon, SendHorizonalIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  PlayIcon,
+  SendHorizontalIcon,
+  XIcon,
+  AlertTriangleIcon,
+  FileCodeIcon,
+} from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -26,18 +33,11 @@ export default function CodeEditor({
   const auth = getAuth();
   const [email, setEmail] = useState(null);
   const [name, setName] = useState(null);
-  const [language, setLanguage] = useState("cpp");
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
   const [testResults, setTestResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [allPassed, setAllPassed] = useState(false);
-
-  const languageMap = {
-    cpp: "cpp17",
-    java: "java",
-    python: "python3",
-  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -70,13 +70,16 @@ export default function CodeEditor({
               "Sending input to backend:",
               JSON.stringify(testCase.input)
             );
-            const response = await axios.post("https://jdoodle-backend.onrender.com/execute", {
-              script: code,
-              language: languageMap[language],
-              input: testCase.input
-                .replace(/],?\s?(\d+)$/, "]\n$1")
-                .replace(/\\n/g, "\n"),
-            });
+            const response = await axios.post(
+              "https://jdoodle-backend.onrender.com/execute",
+              {
+                script: code,
+                language: "python3",
+                input: testCase.input
+                  .replace(/],?\s?(\d+)$/, "]\n$1")
+                  .replace(/\\n/g, "\n"),
+              }
+            );
 
             const passed =
               response.data.output.trim() === testCase.expectedOutput.trim();
@@ -151,74 +154,138 @@ export default function CodeEditor({
   };
 
   return (
-    <div className="flex flex-col w-full items-center">
-      <div className="flex w-full justify-between items-center mb-2 px-4">
-        <select
-          className="p-2 bg-gray-300 text-black rounded-lg hover:cursor-pointer"
-          onChange={(e) => setLanguage(e.target.value)}
-          value={language}
+    <div className="flex flex-col w-full items-center space-y-4">
+      <div className="flex gap-3">
+        <button
+          disabled={loading}
+          className={`px-4 py-2 flex items-center gap-2 ${
+            loading ? "bg-gray-500" : "bg-blue-600 hover:bg-blue-700"
+          } text-white rounded-lg transition-colors hover:cursor-pointer shadow-md`}
+          onClick={handleRun}
         >
-          <option value="cpp">C++</option>
-          <option value="java">Java</option>
-          <option value="python">Python</option>
-        </select>
-        <div className="flex gap-2">
-          <button
-            className="px-4 py-2 flex items-center gap-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors hover:cursor-pointer"
-            onClick={handleRun}
-          >
-            <PlayIcon className="w-5 h-5" />
-            Run
-          </button>
-          <button
-            className="px-4 py-2 flex items-center gap-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors hover:cursor-pointer"
-            onClick={handleSubmit}
-          >
-            <SendHorizonalIcon className="w-5 h-5" />
-            Submit
-          </button>
-        </div>
+          <PlayIcon className="w-5 h-5" />
+          {loading ? "Running..." : "Run Code"}
+        </button>
+        <button
+          disabled={loading || !allPassed}
+          className={`px-4 py-2 flex items-center gap-2 ${
+            loading || !allPassed
+              ? "bg-gray-500"
+              : "bg-green-600 hover:bg-green-700"
+          } text-white rounded-lg transition-colors hover:cursor-pointer shadow-md`}
+          onClick={handleSubmit}
+        >
+          <SendHorizontalIcon className="w-5 h-5" />
+          Submit
+        </button>
       </div>
-      <Editor
-        className="bg-black p-2 border border-solid rounded-xl w-full"
-        height="400px"
-        theme="vs-dark"
-        language={language}
-        value={code}
-        onChange={(newValue) => setCode(newValue)}
-      />
-      <div className="w-full mt-4 p-4 bg-gray-200 text-black rounded-xl">
-        <h3 className="text-lg font-medium">Output:</h3>
-        <pre className="mt-2">{output}</pre>
+
+      <div className="w-full rounded-lg overflow-hidden border border-gray-700 shadow-lg">
+        <Editor
+          height="400px"
+          theme="vs-dark"
+          language="python"
+          value={code}
+          onChange={(newValue) => setCode(newValue)}
+          options={{
+            minimap: { enabled: true },
+            fontSize: 14,
+            scrollBeyondLastLine: false,
+            cursorBlinking: "smooth",
+            cursorSmoothCaretAnimation: true,
+            smoothScrolling: true,
+            padding: { top: 10 },
+          }}
+        />
+      </div>
+
+      <div className="w-full p-5 bg-gray-800 text-white rounded-lg shadow-md border border-gray-700">
+        <h3 className="text-lg font-medium flex items-center gap-2 mb-4 border-b border-gray-700 pb-2">
+          <span className="bg-blue-600 p-1 rounded">
+            <AlertTriangleIcon className="w-4 h-4" />
+          </span>
+          Output
+        </h3>
+        <div className="mb-4">
+          <pre className="bg-gray-900 p-3 rounded text-gray-300 text-sm font-mono overflow-x-auto">
+            {output || "Run your code to see output..."}
+          </pre>
+        </div>
         {testResults.length > 0 && (
-          <div className="mt-4">
-            <h4 className="text-md font-medium">Test Results:</h4>
-            {testResults.map((result, index) => (
-              <div
-                key={index}
-                className={`my-5 p-2 rounded-lg ${
-                  result.passed ? "bg-green-200" : "bg-red-200"
-                }`}
-              >
-                <div className="font-medium">
-                  Test Case {index + 1}:{" "}
-                  {result.passed ? (<div className="flex items-center text-green-500"><CheckIcon /> Passed</div>) : (<div className="flex items-center text-red-500"><XIcon /> Failed</div>)}
+          <div className="mt-6">
+            <h4 className="text-md font-medium mb-4 border-b border-gray-700 pb-2">
+              Test Results
+            </h4>
+            <div className="space-y-4">
+              {testResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg border ${
+                    result.passed
+                      ? "bg-green-900/30 border-green-700"
+                      : "bg-red-900/30 border-red-700"
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="font-medium text-lg">
+                      Test Case {index + 1}
+                    </div>
+                    <div
+                      className={`flex items-center gap-1 text-sm font-medium px-3 py-1 rounded-full ${
+                        result.passed
+                          ? "bg-green-800 text-green-200"
+                          : "bg-red-800 text-red-200"
+                      }`}
+                    >
+                      {result.passed ? (
+                        <>
+                          <CheckIcon className="w-4 h-4" /> Passed
+                        </>
+                      ) : (
+                        <>
+                          <XIcon className="w-4 h-4" /> Failed
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="bg-gray-900 p-2 rounded">
+                      <span className="text-gray-400 font-medium">Input:</span>
+                      <pre className="mt-1 text-gray-300 overflow-x-auto">
+                        {result.input.replace("\\n", ", ")}
+                      </pre>
+                    </div>
+                    <div className="bg-gray-900 p-2 rounded">
+                      <span className="text-gray-400 font-medium">
+                        Expected Output:
+                      </span>
+                      <pre className="mt-1 text-gray-300 overflow-x-auto">
+                        {result.expectedOutput}
+                      </pre>
+                    </div>
+                    <div className="bg-gray-900 p-2 rounded">
+                      <span className="text-gray-400 font-medium">
+                        Actual Output:
+                      </span>
+                      <pre className="mt-1 text-gray-300 overflow-x-auto">
+                        {result.actualOutput}
+                      </pre>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-1">
-                  <div>
-                    <span className="font-medium">Input:</span> {result.input}
-                  </div>
-                  <div>
-                    <span className="font-medium">Expected Output:</span>{" "}
-                    {result.expectedOutput}
-                  </div>
-                  <div>
-                    <span className="font-medium">Actual Output:</span>{" "}
-                    {result.actualOutput}
-                  </div>
+              ))}
+            </div>
+            {allPassed && (
+              <div className="mt-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-center">
+                <div className="flex items-center justify-center gap-2 text-green-400">
+                  <CheckIcon className="w-5 h-5" />
+                  <span className="font-medium">
+                    All test cases passed! Ready to submit.
+                  </span>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

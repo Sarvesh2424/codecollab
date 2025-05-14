@@ -5,6 +5,7 @@ import NavBar from "./NavBar";
 import { jwtDecode } from "jwt-decode";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
+import { UserIcon, BookOpenIcon, CheckCircleIcon, CalendarIcon, MailIcon } from "lucide-react";
 
 export default function Profile() {
   const [name, setName] = useState(null);
@@ -53,37 +54,92 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
-      <div className="mt-20 p-8 flex flex-col items-center justify-center space-y-10">
-        <h1 className="text-5xl text-center font-extrabold text-gray-900 drop-shadow-md">
-          Profile
-        </h1>
-        <div className="flex flex-col w-full max-w-md items-start justify-center p-8 rounded-xl bg-white shadow-xl">
-          <h2 className="text-3xl text-center p-4 font-bold text-gray-900 border-b border-blue-300 w-full">
-            Email
-          </h2>
-          <p className="text-xl text-center p-4 text-gray-700">{email}</p>
-        </div>
-        <div className="flex flex-col w-full max-w-md items-start justify-center p-8 rounded-xl bg-white shadow-xl">
-          <h2 className="text-3xl text-center p-4 font-bold text-gray-900 border-b border-blue-300 w-full">
-            Solved Problems
-          </h2>
-          <ul className="text-xl text-gray-700 p-4 w-full space-y-3">
-            {solvedProblems.length > 0 ? (
-              solvedProblems.map((problem, index) => (
-                <div
-                  className="flex justify-between items-center border-b border-gray-200 pb-2"
-                  key={index}
-                >
-                  <li className="font-medium">{problem[1]}</li>
-                  <li className="text-sm text-gray-500">{problem[2]}</li>
+      <div className="container mx-auto px-4 py-12 mt-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold text-indigo-900 mb-2">
+              Your Profile
+            </h1>
+            <p className="text-indigo-600 text-lg">
+              View your information and progress
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="md:col-span-1">
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-indigo-600 py-6 px-6 text-center">
+                  <div className="w-24 h-24 bg-white rounded-full mx-auto flex items-center justify-center mb-4 border-4 border-indigo-200">
+                    <UserIcon className="w-12 h-12 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">{name}</h2>
+                  <p className="text-indigo-200 text-sm mt-1">Member</p>
                 </div>
-              ))
-            ) : (
-              <p className="text-center text-gray-500">No problems solved yet.</p>
-            )}
-          </ul>
+                <div className="p-6">
+                  <div className="flex items-center mb-4 pb-4 border-b border-indigo-100">
+                    <MailIcon className="w-5 h-5 text-indigo-500 mr-3" />
+                    <div>
+                      <p className="text-sm text-indigo-500 font-medium">Email</p>
+                      <p className="text-indigo-900">{email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <CheckCircleIcon className="w-5 h-5 text-indigo-500 mr-3" />
+                    <div>
+                      <p className="text-sm text-indigo-500 font-medium">Problems Solved</p>
+                      <p className="text-indigo-900">{solvedProblems.length}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden h-full">
+                <div className="bg-indigo-600 py-4 px-6 flex items-center">
+                  <BookOpenIcon className="w-6 h-6 text-white mr-2" />
+                  <h2 className="text-xl font-bold text-white">Solved Problems</h2>
+                </div>
+                <div className="p-6">
+                  {solvedProblems.length > 0 ? (
+                    <div className="divide-y divide-indigo-100">
+                      {solvedProblems.map((problem, index) => (
+                        <div key={index} className="py-4 flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                              <CheckCircleIcon className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-indigo-900">{problem[1]}</h3>
+                              <p className="text-xs text-indigo-500">Problem ID: {problem[0]}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center text-indigo-500 text-sm">
+                            <CalendarIcon className="w-4 h-4 mr-1" />
+                            <span>{problem[2]}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BookOpenIcon className="w-10 h-10 text-indigo-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-indigo-900 mb-2">
+                        No problems solved yet
+                      </h3>
+                      <p className="text-indigo-500 max-w-sm mx-auto">
+                        Start solving problems to track your progress and improve your skills.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

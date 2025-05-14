@@ -77,21 +77,21 @@ export default function Dashboard() {
   const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-50">
       <NavBar />
       <div className="max-w-7xl mt-10 mx-auto px-4 sm:px-6 lg:px-8">
         <div className="pt-20 pb-6">
-          <h1 className="text-5xl font-extrabold text-gray-900 drop-shadow-md">
+          <h1 className="text-5xl font-extrabold text-indigo-900">
             Welcome, {name || "Coder"}!
           </h1>
-          <p className="mt-2 text-lg text-gray-700">
+          <p className="mt-2 text-lg text-indigo-600">
             Ready to collab and code some problems?
           </p>
         </div>
 
         <div className="bg-white mb-10 mt-5 rounded-xl shadow-xl overflow-hidden">
           <div className="px-6 py-5 sm:px-8 flex justify-between items-center flex-wrap gap-4 border-b border-gray-200">
-            <h2 className="text-2xl font-semibold text-gray-900">Problems</h2>
+            <h2 className="text-2xl font-semibold text-indigo-900">Problems</h2>
             <div className="flex items-center">
               <input
                 type="text"
@@ -111,7 +111,7 @@ export default function Dashboard() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
             </div>
           ) : filteredProblems.length === 0 ? (
-            <div className="text-center py-12 text-gray-600">
+            <div className="text-center py-12 text-indigo-600">
               No problems found matching your criteria.
             </div>
           ) : (
@@ -148,7 +148,7 @@ export default function Dashboard() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link
                           to={`/problem/${problem.id}`}
-                          className="text-black hover:text-blue-600 font-medium transition-colors"
+                          className="text-indigo-600 hover:text-indigo-900 font-medium transition-colors"
                         >
                           {problem.title}
                         </Link>

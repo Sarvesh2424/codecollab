@@ -689,12 +689,12 @@ export default function ProblemScreen() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
       {problem === null ? (
         <p className="mt-20 text-center py-20">Loading...</p>
       ) : (
-        <div className="mt-20 p-4 sm:p-8">
+        <div className="mt-20 p-2 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
             <div className="sm:flex-1">
               <div className="flex space-x-0 sm:space-x-0">
@@ -739,7 +739,7 @@ export default function ProblemScreen() {
                     </div>
                   )}
                   
-                  <h1 className="text-3xl flex justify-between items-center sm:text-4xl font-bold">
+                  <h1 className="text-3xl flex justify-between text-indigo-900 items-center sm:text-4xl font-bold">
                     {problem.title}
                     {isSolved && (
                       <div className="text-green-500 mr-20 text-lg font-normal flex items-center gap-2 ml-2">
@@ -748,7 +748,7 @@ export default function ProblemScreen() {
                       </div>
                     )}
                   </h1>
-                  <p className="mt-4 sm:mt-8 text-lg sm:text-xl">
+                  <p className="mt-4 sm:mt-8 text-indigo-600 text-lg sm:text-xl">
                     {problem.description}
                   </p>
                   <div className="mt-4 sm:mt-8 flex items-center gap-2">
@@ -796,8 +796,11 @@ export default function ProblemScreen() {
                   </div>
                   <div className="flex mt-10 text-red-500 gap-2">
                     <InfoIcon />
-                    Note: Use <b>eval()</b> in Python and <b>ScriptEngine</b> in
-                    Java to get array inputs.
+                    Note: Currently supports only <b>Python</b>, more languages coming soon!
+                  </div>
+                  <div className="flex mt-5 text-red-500 gap-2">
+                    <InfoIcon />
+                    Note: Use <b>eval()</b> in Python get array inputs.
                   </div>
                 </div>
               ) : (

@@ -9,6 +9,8 @@ import {
   UserRoundPlusIcon,
   UserRoundXIcon,
   XIcon,
+  UsersIcon,
+  BellIcon,
 } from "lucide-react";
 import { db } from "./firebase";
 import {
@@ -227,128 +229,215 @@ export default function FriendsScreen() {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
-      <div className="mt-20 p-8 bg-gradient-to-b from-gray-100 to-white">
-        <h1 className="text-5xl text-center font-extrabold text-gray-900 drop-shadow-md">
-          Friends
-        </h1>
-        <div className="mt-10 flex flex-col items-center justify-center">
-          <div className="relative w-1/2">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <SearchIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                handleSearch();
-              }}
-              onFocus={() => setShowDropdown(!!search)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-              type="search"
-              className="w-full pl-10 p-4 border-2 border-gray-300 rounded-xl"
-              placeholder="Enter your friend's email to add them..."
-            />
-            {showDropdown && users.length > 0 && (
-              <div
-                className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg"
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                {users.map((user) => (
-                  <div
-                    key={user}
-                    className="px-4 py-2 flex items-center justify-between hover:bg-gray-100 cursor-pointer"
-                    onClick={() => {
-                      setSearch(user);
-                      setShowDropdown(false);
-                    }}
-                  >
-                    {user}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sendFriendRequest(user);
-                      }}
-                      className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 flex items-center justify-center transition-colors cursor-pointer"
-                    >
-                      <UserPlusIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
+      <div className="container mx-auto px-4 py-12 mt-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold text-indigo-900 mb-2">
+              Connect with Friends
+            </h1>
+            <p className="text-indigo-600 text-lg">
+              Manage your connections and discover new friends
+            </p>
+          </div>
+
+          <div className="mb-10">
+            <div className="relative max-w-xl mx-auto">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <SearchIcon className="w-5 h-5 text-indigo-500" />
               </div>
-            )}
-          </div>
-          <div className="mt-10 w-1/2 flex items-center">
-            <button
-              onClick={() => setIsFriendsScreen(true)}
-              className={`w-1/2 hover:cursor-pointer ${
-                isFriendsScreen ? "bg-blue-600" : "bg-blue-500"
-              } text-white px-4 py-2 rounded-l-xl border border-r-white`}
-            >
-              Your Friends
-            </button>
-            <button
-              onClick={() => setIsFriendsScreen(false)}
-              className={`w-1/2 hover:cursor-pointer ${
-                !isFriendsScreen ? "bg-blue-600" : "bg-blue-500"
-              } text-white px-4 py-2 rounded-r-xl border border-l-white`}
-            >
-              Pending Requests
-            </button>
-          </div>
-          <div className="flex items-center justify-center">
-            {isFriendsScreen ? (
-              friends.length > 0 ? (
-                friends.map((friend) => (
-                  <div
-                    key={friend}
-                    className="m-4 flex items-center justify-between w-full gap-8 p-4 rounded-xl bg-blue-100"
-                  >
-                    <div>{friend}</div>
-                    <button
-                      onClick={() => removeFriend(friend)}
-                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center transition-colors cursor-pointer"
-                    >
-                      <XIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center mt-40 text-gray-500">
-                  No friends yet.
-                </div>
-              )
-            ) : pendingRequests.length > 0 ? (
-              pendingRequests.map((request) => (
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  handleSearch();
+                }}
+                onFocus={() => setShowDropdown(!!search)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                type="search"
+                className="w-full pl-12 pr-4 py-4 rounded-full border-2 border-indigo-200 bg-white placeholder-indigo-300 text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-md transition-all"
+                placeholder="Search for friends by email..."
+              />
+              {showDropdown && users.length > 0 && (
                 <div
-                  key={request}
-                  className="m-4 flex items-center justify-between w-full gap-8 p-4 rounded-xl bg-blue-100 "
+                  className="absolute z-10 mt-2 w-full bg-white border border-indigo-100 rounded-xl shadow-xl overflow-hidden"
+                  onMouseDown={(e) => e.preventDefault()}
                 >
-                  <div>{request}</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => acceptFriendReqest(request)}
-                      className="p-2 bg-green-500 text-white rounded-xl hover:bg-green-600 flex items-center gap-2 justify-center transition-colors cursor-pointer"
+                  {users.map((user) => (
+                    <div
+                      key={user}
+                      className="px-4 py-3 flex items-center justify-between hover:bg-indigo-50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setSearch(user);
+                        setShowDropdown(false);
+                      }}
                     >
-                      <UserRoundPlusIcon />
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => rejectFriendRequest(request)}
-                      className="p-2 gap-2 bg-red-500 text-white rounded-xl hover:bg-red-600 flex items-center justify-center transition-colors cursor-pointer"
-                    >
-                      <UserRoundXIcon />
-                      Decline
-                    </button>
-                  </div>
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-indigo-200 rounded-full flex items-center justify-center mr-3">
+                          <span className="text-indigo-700 font-semibold">
+                            {user.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-indigo-900">{user}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sendFriendRequest(user);
+                        }}
+                        className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 flex items-center justify-center transition-colors cursor-pointer shadow-md"
+                      >
+                        <UserPlusIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))
-            ) : (
-              <div className="text-center mt-40 text-gray-500">
-                No pending requests.
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
+            <div className="flex">
+              <button
+                onClick={() => setIsFriendsScreen(true)}
+                className={`flex-1 py-4 px-6 flex items-center hover:cursor-pointer justify-center gap-2 text-lg font-medium transition-all ${
+                  isFriendsScreen
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-indigo-600 hover:bg-indigo-50"
+                }`}
+              >
+                <UsersIcon className="w-5 h-5" />
+                <span>Your Friends</span>
+                {friends.length > 0 && (
+                  <span className="ml-2 px-2 py-1 bg-white text-indigo-600 text-xs font-bold rounded-full">
+                    {friends.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setIsFriendsScreen(false)}
+                className={`flex-1 py-4 px-6 flex items-center hover:cursor-pointer justify-center gap-2 text-lg font-medium transition-all ${
+                  !isFriendsScreen
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-indigo-600 hover:bg-indigo-50"
+                }`}
+              >
+                <BellIcon className="w-5 h-5" />
+                <span>Pending Requests</span>
+                {pendingRequests.length > 0 && (
+                  <span className="ml-2 px-2 py-1 bg-white text-indigo-600 text-xs font-bold rounded-full">
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="p-6">
+              {isFriendsScreen ? (
+                <div className="space-y-4">
+                  {friends.length > 0 ? (
+                    friends.map((friend) => (
+                      <div
+                        key={friend}
+                        className="flex items-center justify-between p-4 rounded-xl bg-indigo-50 border border-indigo-100 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-indigo-200 rounded-full flex items-center justify-center mr-4">
+                            <span className="text-indigo-700 font-semibold">
+                              {friend.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-indigo-900">
+                              {friend.split("@")[0]}
+                            </div>
+                            <div className="text-sm text-indigo-500">
+                              {friend}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeFriend(friend)}
+                          className="p-2 bg-white border border-red-200 text-red-500 rounded-full hover:bg-red-500 hover:text-white hover:border-transparent flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <XIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <UsersIcon className="w-10 h-10 text-indigo-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-indigo-900 mb-2">
+                        No friends yet
+                      </h3>
+                      <p className="text-indigo-500 max-w-sm mx-auto">
+                        Search for friends by email address to start building
+                        your connections.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingRequests.length > 0 ? (
+                    pendingRequests.map((request) => (
+                      <div
+                        key={request}
+                        className="flex items-center justify-between p-4 rounded-xl bg-indigo-50 border border-indigo-100 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-indigo-200 rounded-full flex items-center justify-center mr-4">
+                            <span className="text-indigo-700 font-semibold">
+                              {request.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-indigo-900">
+                              {request.split("@")[0]}
+                            </div>
+                            <div className="text-sm text-indigo-500">
+                              {request}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => acceptFriendReqest(request)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 justify-center transition-colors cursor-pointer shadow-sm"
+                          >
+                            <UserRoundPlusIcon className="w-4 h-4" />
+                            <span className="hidden sm:inline">Accept</span>
+                          </button>
+                          <button
+                            onClick={() => rejectFriendRequest(request)}
+                            className="px-4 py-2 bg-white border border-red-200 text-red-500 rounded-lg hover:bg-red-600 hover:text-white hover:border-transparent flex items-center gap-2 justify-center transition-colors cursor-pointer"
+                          >
+                            <UserRoundXIcon className="w-4 h-4" />
+                            <span className="hidden sm:inline">Decline</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BellIcon className="w-10 h-10 text-indigo-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-indigo-900 mb-2">
+                        No pending requests
+                      </h3>
+                      <p className="text-indigo-500 max-w-sm mx-auto">
+                        When someone sends you a friend request, it will appear
+                        here for you to accept or decline.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
