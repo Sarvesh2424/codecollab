@@ -197,10 +197,12 @@ export default function ProblemScreen() {
           setRemoteIsMuted(remoteState.isMuted);
           setRemoteIsVideoOff(remoteState.isVideoOff);
 
+          // Properly handle remote video state
           if (remoteStream.current) {
-            remoteStream.current.getVideoTracks().forEach((track) => {
-              track.enabled = !remoteState.isVideoOff;
-            });
+            const videoTracks = remoteStream.current.getVideoTracks();
+            if (videoTracks.length > 0) {
+              videoTracks[0].enabled = !remoteState.isVideoOff;
+            }
           }
         }
       }
@@ -270,9 +272,20 @@ export default function ProblemScreen() {
 
     peerConnection.current.ontrack = (event) => {
       console.log("Received remote track", event);
-      if (event.streams[0]) {
+      if (event.streams && event.streams[0]) {
         console.log("Setting remote video stream");
-        remoteStream.current = event.streams[0]; 
+
+        // Clean up previous stream if it exists
+        if (remoteStream.current) {
+          remoteStream.current.getTracks().forEach((track) => track.stop());
+        }
+
+        remoteStream.current = event.streams[0];
+
+        // Apply current remote media state
+        if (remoteStream.current.getVideoTracks().length > 0) {
+          remoteStream.current.getVideoTracks()[0].enabled = !remoteIsVideoOff;
+        }
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
@@ -317,7 +330,7 @@ export default function ProblemScreen() {
           if (callStatus === "connected") {
             toast.error("Call disconnected");
             setCallStatus("idle");
-            setCallActive(false); 
+            setCallActive(false);
           }
           break;
         default:
@@ -703,7 +716,18 @@ export default function ProblemScreen() {
       localStream.current = null;
     }
 
-    remoteStream.current = null;
+    if (remoteStream.current) {
+      remoteStream.current.getTracks().forEach((track) => track.stop());
+      remoteStream.current = null;
+    }
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
 
     setCallId(null);
     setCallStatus("idle");
@@ -712,6 +736,8 @@ export default function ProblemScreen() {
     callDocRef.current = null;
     setRemoteIsMuted(false);
     setRemoteIsVideoOff(false);
+    setIsMuted(false);
+    setIsVideoOff(false);
   };
 
   const toggleMute = async () => {
@@ -729,11 +755,17 @@ export default function ProblemScreen() {
   const toggleVideo = async () => {
     if (!localStream.current) return;
 
+    const newVideoState = !isVideoOff;
+    setIsVideoOff(newVideoState);
+
     localStream.current.getVideoTracks().forEach((track) => {
-      track.enabled = !track.enabled;
+      track.enabled = !newVideoState;
     });
 
-    setIsVideoOff(!isVideoOff);
+    if (localVideoRef.current) {
+      localVideoRef.current.style.display = newVideoState ? "none" : "block";
+    }
+
     await updateMediaState();
   };
 
