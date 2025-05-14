@@ -61,6 +61,7 @@ export default function ProblemScreen() {
   const [remoteIsVideoOff, setRemoteIsVideoOff] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
   const [callActive, setCallActive] = useState(false);
+  const pendingCandidatesRef = useRef([]);
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -80,10 +81,18 @@ export default function ProblemScreen() {
       navigate("/login");
       return;
     }
-    setEmail(jwtDecode(token).email);
-    setName(jwtDecode(token).email.split("@")[0]);
-    fetchSolvedProblems(jwtDecode(token).email);
-    loadUserData(jwtDecode(token).email);
+
+    try {
+      const decoded = jwtDecode(token);
+      setEmail(decoded.email);
+      setName(decoded.email.split("@")[0]);
+      fetchSolvedProblems(decoded.email);
+      loadUserData(decoded.email);
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      navigate("/login");
+      return;
+    }
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -95,15 +104,21 @@ export default function ProblemScreen() {
   }, [auth, navigate]);
 
   const loadUserData = async (userEmail) => {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", userEmail));
-    const querySnapshot = await getDocs(q);
+    if (!userEmail) return;
 
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      setFriends(userDoc.data().friends || []);
-    } else {
-      console.log("No user document found for:", userEmail);
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", userEmail));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        setFriends(userDoc.data().friends || []);
+      } else {
+        console.log("No user document found for:", userEmail);
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
     }
   };
 
@@ -220,10 +235,13 @@ export default function ProblemScreen() {
 
     try {
       const callDoc = doc(db, "videoCalls", callId);
-      const callData = (await getDoc(callDoc)).data();
+      const callSnapshot = await getDoc(callDoc);
+      if (!callSnapshot.exists()) {
+        console.log("Call document not found");
+        return;
+      }
 
-      if (!callData) return;
-
+      const callData = callSnapshot.data();
       const mediaStates = callData.mediaStates || {};
       mediaStates[email] = {
         isMuted,
@@ -281,6 +299,8 @@ export default function ProblemScreen() {
       localStream.current.getTracks().forEach((track) => {
         peerConnection.current.addTrack(track, localStream.current);
       });
+    } else {
+      console.warn("No local stream available when creating peer connection");
     }
 
     // Handle incoming tracks
@@ -359,18 +379,12 @@ export default function ProblemScreen() {
     return peerConnection.current;
   };
 
-  const startCall = async (friendEmail) => {
-    try {
-      console.log("Starting call to", friendEmail);
-      setCallStatus("calling");
-      setCurrentPeer(friendEmail);
-      setCallActive(true);
-
-      // Ensure we have media
-      if (!localStream.current) {
-        console.log("Getting media for call...");
+  const ensureMediaIsReady = async (audioOnlyMode = false) => {
+    if (!localStream.current) {
+      console.log("Getting media for call...");
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: !audioOnly,
+          video: !audioOnlyMode,
           audio: true,
         });
 
@@ -378,32 +392,62 @@ export default function ProblemScreen() {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+
+        // Apply current state
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = !isMuted;
+        });
+
+        stream.getVideoTracks().forEach((track) => {
+          track.enabled = !isVideoOff;
+        });
+
+        return true;
+      } catch (error) {
+        console.error("Error getting media:", error);
+        toast.error("Failed to access camera/microphone");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const startCall = async (friendEmail) => {
+    try {
+      if (!email) {
+        toast.error("You must be logged in to start a call");
+        return;
       }
 
-      // Create peer connection
-      const pc = createPeerConnection();
+      console.log("Starting call to", friendEmail);
+      setCallStatus("calling");
+      setCurrentPeer(friendEmail);
+      setCallActive(true);
 
-      // Generate a call ID and reference the call document
-      const newCallId = `call_${Math.random().toString(36).substring(2, 15)}`;
+      // Switch to call view
+      setIsCode(false);
+
+      // Ensure we have media
+      const mediaReady = await ensureMediaIsReady(audioOnly);
+      if (!mediaReady) {
+        setCallStatus("idle");
+        setCurrentPeer(null);
+        setCallActive(false);
+        return;
+      }
+
+      // Generate a call ID
+      const newCallId = `call_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}`;
       setCallId(newCallId);
 
+      // Create reference to the call document
       const callDoc = doc(db, "videoCalls", newCallId);
       callDocRef.current = callDoc;
 
-      // Create the offer
-      console.log("Creating offer");
-      const offerDescription = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
-      await pc.setLocalDescription(offerDescription);
-
-      // Store call data in Firestore
-      const callData = {
-        offer: {
-          type: offerDescription.type,
-          sdp: offerDescription.sdp,
-        },
+      // Initialize call data in Firestore
+      const initialCallData = {
         createdAt: serverTimestamp(),
         caller: email,
         receiver: friendEmail,
@@ -411,17 +455,18 @@ export default function ProblemScreen() {
         ended: false,
         mediaStates: {
           [email]: {
-            isMuted: false,
-            isVideoOff: false,
+            isMuted: isMuted,
+            isVideoOff: isVideoOff,
             updatedAt: serverTimestamp(),
           },
         },
       };
 
-      console.log("Saving call data to Firestore");
-      await setDoc(callDoc, callData);
+      // Create the call document first
+      await setDoc(callDoc, initialCallData);
+      console.log("Call document created:", newCallId);
 
-      // Create a call request notification
+      // Create the call request document
       await addDoc(collection(db, "videoCallRequests"), {
         caller: email,
         receiver: friendEmail,
@@ -429,6 +474,27 @@ export default function ProblemScreen() {
         status: "pending",
         timestamp: serverTimestamp(),
       });
+      console.log("Call request created successfully");
+
+      // Create peer connection
+      const pc = createPeerConnection();
+
+      // Create the offer
+      console.log("Creating offer");
+      const offerDescription = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: !audioOnly,
+      });
+      await pc.setLocalDescription(offerDescription);
+
+      // Update call document with the offer
+      await updateDoc(callDoc, {
+        offer: {
+          type: offerDescription.type,
+          sdp: offerDescription.sdp,
+        },
+      });
+      console.log("Offer added to call document");
 
       // Listen for answer and call state changes
       console.log("Setting up listeners for remote answer and candidates");
@@ -453,12 +519,24 @@ export default function ProblemScreen() {
         }
 
         // Process the answer when it's received
-        if (!pc.currentRemoteDescription && data?.answer) {
+        if (pc.signalingState !== "stable" && data?.answer) {
           console.log("Received remote answer");
           try {
             const answerDescription = new RTCSessionDescription(data.answer);
             await pc.setRemoteDescription(answerDescription);
             console.log("Set remote description from answer");
+
+            // Process any pending ICE candidates now that we have the remote description
+            if (pendingCandidatesRef.current.length > 0) {
+              console.log(
+                "Processing pending ICE candidates:",
+                pendingCandidatesRef.current.length
+              );
+              for (const candidate of pendingCandidatesRef.current) {
+                await pc.addIceCandidate(candidate);
+              }
+              pendingCandidatesRef.current = [];
+            }
           } catch (error) {
             console.error("Error setting remote description:", error);
           }
@@ -475,21 +553,23 @@ export default function ProblemScreen() {
             if (change.type === "added") {
               const data = change.doc.data();
               if (data && data.source !== email) {
-                console.log("Adding remote ICE candidate", data);
+                console.log("Received remote ICE candidate", data);
                 try {
+                  const candidate = new RTCIceCandidate({
+                    candidate: data.candidate,
+                    sdpMid: data.sdpMid,
+                    sdpMLineIndex: data.sdpMLineIndex,
+                  });
+
                   // Only add candidate if we have a remote description
                   if (pc.remoteDescription) {
-                    await pc.addIceCandidate(
-                      new RTCIceCandidate({
-                        candidate: data.candidate,
-                        sdpMid: data.sdpMid,
-                        sdpMLineIndex: data.sdpMLineIndex,
-                      })
-                    );
+                    await pc.addIceCandidate(candidate);
+                    console.log("Added remote ICE candidate");
                   } else {
                     console.log(
-                      "Skipping ICE candidate - no remote description yet"
+                      "Storing ICE candidate for later - no remote description yet"
                     );
+                    pendingCandidatesRef.current.push(candidate);
                   }
                 } catch (error) {
                   console.error("Error adding received ICE candidate:", error);
@@ -581,17 +661,10 @@ export default function ProblemScreen() {
       setCallActive(true);
 
       // Ensure we have media
-      if (!localStream.current) {
-        console.log("Getting media for incoming call...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: !audioOnly,
-          audio: true,
-        });
-
-        localStream.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+      const mediaReady = await ensureMediaIsReady(audioOnly);
+      if (!mediaReady) {
+        cleanupCall();
+        return;
       }
 
       // Create peer connection
@@ -602,21 +675,22 @@ export default function ProblemScreen() {
       callDocRef.current = callDoc;
 
       // Get call data
-      const callData = (await getDoc(callDoc)).data();
-      console.log("Retrieved call data", callData);
-
-      if (!callData) {
-        console.error("No call data found");
-        toast.error("Call data not found");
+      const callSnapshot = await getDoc(callDoc);
+      if (!callSnapshot.exists()) {
+        console.error("Call document not found");
+        toast.error("Call not found");
         cleanupCall();
         return;
       }
 
+      const callData = callSnapshot.data();
+      console.log("Retrieved call data", callData);
+
       // Update call status and media state
       const mediaStates = callData.mediaStates || {};
       mediaStates[email] = {
-        isMuted: false,
-        isVideoOff: false,
+        isMuted: isMuted,
+        isVideoOff: isVideoOff,
         updatedAt: serverTimestamp(),
       };
 
@@ -647,12 +721,42 @@ export default function ProblemScreen() {
         });
 
         console.log("Answer created and saved");
+      } else {
+        console.error("No offer found in call data");
+        toast.error("Call setup failed - no offer available");
+        cleanupCall();
+        return;
       }
 
-      // Listen for ICE candidates
+      // Process any existing ICE candidates
       const candidatesCollection = collection(callDoc, "candidates");
-      console.log("Setting up listener for ICE candidates");
+      const candidatesQuery = query(
+        candidatesCollection,
+        where("source", "==", callerEmail)
+      );
 
+      const candidatesSnapshot = await getDocs(candidatesQuery);
+      console.log(
+        `Processing ${candidatesSnapshot.size} existing ICE candidates`
+      );
+
+      for (const doc of candidatesSnapshot.docs) {
+        const data = doc.data();
+        try {
+          await pc.addIceCandidate(
+            new RTCIceCandidate({
+              candidate: data.candidate,
+              sdpMid: data.sdpMid,
+              sdpMLineIndex: data.sdpMLineIndex,
+            })
+          );
+        } catch (error) {
+          console.error("Error adding existing ICE candidate:", error);
+        }
+      }
+
+      // Listen for additional ICE candidates
+      console.log("Setting up listener for ICE candidates");
       const candidatesUnsubscribe = onSnapshot(
         candidatesCollection,
         (snapshot) => {
@@ -762,6 +866,7 @@ export default function ProblemScreen() {
     callDocRef.current = null;
     setRemoteIsMuted(false);
     setRemoteIsVideoOff(false);
+    pendingCandidatesRef.current = [];
 
     // Don't stop local streams immediately if we're still in call view
     if (isCode) {
@@ -811,26 +916,31 @@ export default function ProblemScreen() {
   };
 
   async function fetchSolvedProblems(email) {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
+    if (!email) return;
 
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      const userSolvedProblems = userDoc.data().solvedProblems || [];
-      const problemNames = userSolvedProblems.map((problem) => {
-        if (problem.id === id) {
-          setIsSolved(true);
-        }
-        return problem.name;
-      });
-      setSolvedProblems(problemNames);
-      console.log(userDoc.data());
-    } else {
-      console.log("No user document found for:", email);
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userSolvedProblems = userDoc.data().solvedProblems || [];
+        const problemNames = userSolvedProblems.map((problem) => {
+          if (problem.id === id) {
+            setIsSolved(true);
+          }
+          return problem.name;
+        });
+        setSolvedProblems(problemNames);
+      } else {
+        console.log("No user document found for:", email);
+      }
+    } catch (error) {
+      console.error("Error fetching solved problems:", error);
     }
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <NavBar />
