@@ -52,17 +52,13 @@ export default function ProblemScreen() {
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
-  const remoteStream = useRef(null);
+  const remoteStream = useRef(null); // Add reference to store remote stream
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [remoteIsMuted, setRemoteIsMuted] = useState(false);
-  const [remoteIsVideoOff, setRemoteIsVideoOff] = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
   const [callActive, setCallActive] = useState(false);
-  const pendingCandidatesRef = useRef([]);
-
   useEffect(() => {
     const fetchProblem = async () => {
       const docRef = doc(db, "codingProblems", id);
@@ -81,18 +77,10 @@ export default function ProblemScreen() {
       navigate("/login");
       return;
     }
-
-    try {
-      const decoded = jwtDecode(token);
-      setEmail(decoded.email);
-      setName(decoded.email.split("@")[0]);
-      fetchSolvedProblems(decoded.email);
-      loadUserData(decoded.email);
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      navigate("/login");
-      return;
-    }
+    setEmail(jwtDecode(token).email);
+    setName(jwtDecode(token).email.split("@")[0]);
+    fetchSolvedProblems(jwtDecode(token).email);
+    loadUserData(jwtDecode(token).email);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -104,28 +92,24 @@ export default function ProblemScreen() {
   }, [auth, navigate]);
 
   const loadUserData = async (userEmail) => {
-    if (!userEmail) return;
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", userEmail));
+    const querySnapshot = await getDocs(q);
 
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", userEmail));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        setFriends(userDoc.data().friends || []);
-      } else {
-        console.log("No user document found for:", userEmail);
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      setFriends(userDoc.data().friends || []);
+    } else {
+      console.log("No user document found for:", userEmail);
     }
   };
 
-  // Initialize media when moving to call view or when call becomes active
   useEffect(() => {
+    let mediaCleanup;
+
     const initializeMedia = async () => {
-      if ((!isCode || callActive) && !localStream.current) {
+      // Only initialize media when in call view or when call is active
+      if (!isCode || callActive) {
         try {
           console.log("Initializing media...");
           const constraints = {
@@ -133,21 +117,18 @@ export default function ProblemScreen() {
             audio: true,
           };
 
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          localStream.current = stream;
-
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
+          // Only get new media if we don't already have it
+          if (!localStream.current) {
+            const stream = await navigator.mediaDevices.getUserMedia(
+              constraints
+            );
+            localStream.current = stream;
           }
 
-          // Make sure tracks start in correct state
-          stream.getAudioTracks().forEach((track) => {
-            track.enabled = !isMuted;
-          });
-
-          stream.getVideoTracks().forEach((track) => {
-            track.enabled = !isVideoOff;
-          });
+          // Update video ref if we're in call view
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream.current;
+          }
 
           console.log("Media initialized successfully");
         } catch (error) {
@@ -158,9 +139,12 @@ export default function ProblemScreen() {
     };
 
     initializeMedia();
-  }, [isCode, audioOnly, callActive, isMuted, isVideoOff]);
 
-  // Clean up resources when component unmounts
+    mediaCleanup = () => {};
+
+    return mediaCleanup;
+  }, [isCode, audioOnly, callActive]);
+
   useEffect(() => {
     return () => {
       if (callListenerUnsubscribe.current) {
@@ -182,95 +166,28 @@ export default function ProblemScreen() {
         setDoc(callDoc, { ended: true }, { merge: true }).catch(console.error);
       }
     };
-  }, [db, callId]);
+  }, [db]);
 
-  // Ensure video elements have proper references
+  // Effect to update video elements when switching between views
   useEffect(() => {
+    // Handle local video when switching views
     if (localVideoRef.current && localStream.current) {
       localVideoRef.current.srcObject = localStream.current;
     }
 
+    // Handle remote video when switching views
     if (remoteVideoRef.current && remoteStream.current) {
       remoteVideoRef.current.srcObject = remoteStream.current;
     }
   }, [isCode]);
 
-  // Listen for remote media state changes
-  useEffect(() => {
-    if (!callId || !email) return;
-
-    const callDoc = doc(db, "videoCalls", callId);
-    const unsubscribe = onSnapshot(callDoc, async (snapshot) => {
-      const data = snapshot.data();
-      if (!data) return;
-
-      // Check if call was ended
-      if (data.ended) {
-        console.log("Call was marked as ended");
-        toast.info("Call ended");
-        cleanupCall();
-        return;
-      }
-
-      // Monitor media states
-      if (data.mediaStates) {
-        const participants = Object.keys(data.mediaStates);
-        const remotePeer = participants.find(
-          (participant) => participant !== email
-        );
-
-        if (remotePeer && data.mediaStates[remotePeer]) {
-          const remoteState = data.mediaStates[remotePeer];
-          setRemoteIsMuted(remoteState.isMuted);
-          setRemoteIsVideoOff(remoteState.isVideoOff);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [callId, email, db]);
-
-  const updateMediaState = async () => {
-    if (!callId || !email) return;
-
-    try {
-      const callDoc = doc(db, "videoCalls", callId);
-      const callSnapshot = await getDoc(callDoc);
-      if (!callSnapshot.exists()) {
-        console.log("Call document not found");
-        return;
-      }
-
-      const callData = callSnapshot.data();
-      const mediaStates = callData.mediaStates || {};
-      mediaStates[email] = {
-        isMuted,
-        isVideoOff,
-        updatedAt: serverTimestamp(),
-      };
-
-      await updateDoc(callDoc, { mediaStates });
-      console.log("Media state updated in Firestore");
-    } catch (error) {
-      console.error("Error updating media state:", error);
-    }
-  };
-
   const createPeerConnection = () => {
     console.log("Creating peer connection");
 
-    // Clean up any existing connection
     if (peerConnection.current) {
       peerConnection.current.close();
     }
 
-    // Initialize remote stream
-    remoteStream.current = new MediaStream();
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream.current;
-    }
-
-    // Create new connection with ICE servers
     peerConnection.current = new RTCPeerConnection({
       iceServers: [
         {
@@ -293,35 +210,26 @@ export default function ProblemScreen() {
 
     console.log("Peer connection created");
 
-    // Add local tracks to the connection
     if (localStream.current) {
       console.log("Adding local tracks to peer connection");
       localStream.current.getTracks().forEach((track) => {
         peerConnection.current.addTrack(track, localStream.current);
       });
-    } else {
-      console.warn("No local stream available when creating peer connection");
     }
 
-    // Handle incoming tracks
     peerConnection.current.ontrack = (event) => {
       console.log("Received remote track", event);
-      if (event.streams && event.streams[0]) {
+      if (event.streams[0]) {
         console.log("Setting remote video stream");
+        remoteStream.current = event.streams[0]; // Store the remote stream
 
-        // Add the track to our remote stream
-        event.streams[0].getTracks().forEach((track) => {
-          remoteStream.current.addTrack(track);
-        });
-
-        // Ensure remote video element shows the stream
+        // Set the remote stream to the video element if it exists
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
       }
     };
 
-    // Handle ICE candidates
     peerConnection.current.onicecandidate = async (event) => {
       if (event.candidate && callDocRef.current) {
         console.log("Generated local ICE candidate", event.candidate);
@@ -341,7 +249,6 @@ export default function ProblemScreen() {
       }
     };
 
-    // Handle connection state changes
     peerConnection.current.onconnectionstatechange = () => {
       console.log(
         "Connection state changed:",
@@ -350,9 +257,8 @@ export default function ProblemScreen() {
       switch (peerConnection.current.connectionState) {
         case "connected":
           setCallStatus("connected");
-          setCallActive(true);
+          setCallActive(true); // Mark call as active when connected
           toast.success("Call connected!");
-          updateMediaState();
           break;
         case "disconnected":
         case "failed":
@@ -360,7 +266,7 @@ export default function ProblemScreen() {
           if (callStatus === "connected") {
             toast.error("Call disconnected");
             setCallStatus("idle");
-            setCallActive(false);
+            setCallActive(false); // Mark call as inactive when disconnected
           }
           break;
         default:
@@ -368,7 +274,6 @@ export default function ProblemScreen() {
       }
     };
 
-    // Log ICE connection state changes
     peerConnection.current.oniceconnectionstatechange = () => {
       console.log(
         "ICE connection state:",
@@ -379,12 +284,17 @@ export default function ProblemScreen() {
     return peerConnection.current;
   };
 
-  const ensureMediaIsReady = async (audioOnlyMode = false) => {
-    if (!localStream.current) {
-      console.log("Getting media for call...");
-      try {
+  const startCall = async (friendEmail) => {
+    try {
+      console.log("Starting call to", friendEmail);
+      setCallStatus("calling");
+      setCurrentPeer(friendEmail);
+      setCallActive(true); // Mark call as active when starting
+
+      if (!localStream.current) {
+        console.log("Getting media for call...");
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: !audioOnlyMode,
+          video: !audioOnly,
           audio: true,
         });
 
@@ -392,81 +302,40 @@ export default function ProblemScreen() {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-
-        // Apply current state
-        stream.getAudioTracks().forEach((track) => {
-          track.enabled = !isMuted;
-        });
-
-        stream.getVideoTracks().forEach((track) => {
-          track.enabled = !isVideoOff;
-        });
-
-        return true;
-      } catch (error) {
-        console.error("Error getting media:", error);
-        toast.error("Failed to access camera/microphone");
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const startCall = async (friendEmail) => {
-    try {
-      if (!email) {
-        toast.error("You must be logged in to start a call");
-        return;
       }
 
-      console.log("Starting call to", friendEmail);
-      setCallStatus("calling");
-      setCurrentPeer(friendEmail);
-      setCallActive(true);
+      const pc = createPeerConnection();
 
-      // Switch to call view
-      setIsCode(false);
-
-      // Ensure we have media
-      const mediaReady = await ensureMediaIsReady(audioOnly);
-      if (!mediaReady) {
-        setCallStatus("idle");
-        setCurrentPeer(null);
-        setCallActive(false);
-        return;
-      }
-
-      // Generate a call ID
-      const newCallId = `call_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 8)}`;
+      const newCallId = `call_${Math.random().toString(36).substring(2, 15)}`;
       setCallId(newCallId);
 
-      // Create reference to the call document
       const callDoc = doc(db, "videoCalls", newCallId);
       callDocRef.current = callDoc;
 
-      // Initialize call data in Firestore
-      const initialCallData = {
+      const callerCandidatesCollection = collection(callDoc, "candidates");
+
+      console.log("Creating offer");
+      const offerDescription = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      await pc.setLocalDescription(offerDescription);
+
+      const callData = {
+        offer: {
+          type: offerDescription.type,
+          sdp: offerDescription.sdp,
+        },
         createdAt: serverTimestamp(),
         caller: email,
         receiver: friendEmail,
         status: "pending",
         ended: false,
-        mediaStates: {
-          [email]: {
-            isMuted: isMuted,
-            isVideoOff: isVideoOff,
-            updatedAt: serverTimestamp(),
-          },
-        },
       };
 
-      // Create the call document first
-      await setDoc(callDoc, initialCallData);
-      console.log("Call document created:", newCallId);
+      console.log("Saving call data to Firestore");
+      await setDoc(callDoc, callData);
 
-      // Create the call request document
       await addDoc(collection(db, "videoCallRequests"), {
         caller: email,
         receiver: friendEmail,
@@ -474,33 +343,10 @@ export default function ProblemScreen() {
         status: "pending",
         timestamp: serverTimestamp(),
       });
-      console.log("Call request created successfully");
 
-      // Create peer connection
-      const pc = createPeerConnection();
-
-      // Create the offer
-      console.log("Creating offer");
-      const offerDescription = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: !audioOnly,
-      });
-      await pc.setLocalDescription(offerDescription);
-
-      // Update call document with the offer
-      await updateDoc(callDoc, {
-        offer: {
-          type: offerDescription.type,
-          sdp: offerDescription.sdp,
-        },
-      });
-      console.log("Offer added to call document");
-
-      // Listen for answer and call state changes
       console.log("Setting up listeners for remote answer and candidates");
       const unsubscribe = onSnapshot(callDoc, async (snapshot) => {
         const data = snapshot.data();
-        if (!data) return;
 
         if (data?.ended) {
           console.log("Call was marked as ended");
@@ -518,59 +364,35 @@ export default function ProblemScreen() {
           return;
         }
 
-        // Process the answer when it's received
-        if (pc.signalingState !== "stable" && data?.answer) {
+        if (!pc.currentRemoteDescription && data?.answer) {
           console.log("Received remote answer");
           try {
             const answerDescription = new RTCSessionDescription(data.answer);
             await pc.setRemoteDescription(answerDescription);
             console.log("Set remote description from answer");
-
-            // Process any pending ICE candidates now that we have the remote description
-            if (pendingCandidatesRef.current.length > 0) {
-              console.log(
-                "Processing pending ICE candidates:",
-                pendingCandidatesRef.current.length
-              );
-              for (const candidate of pendingCandidatesRef.current) {
-                await pc.addIceCandidate(candidate);
-              }
-              pendingCandidatesRef.current = [];
-            }
           } catch (error) {
             console.error("Error setting remote description:", error);
           }
         }
       });
 
-      // Listen for ICE candidates
       console.log("Setting up listener for remote ICE candidates");
-      const candidatesCollection = collection(callDoc, "candidates");
       const candidatesUnsubscribe = onSnapshot(
-        candidatesCollection,
+        callerCandidatesCollection,
         (snapshot) => {
           snapshot.docChanges().forEach(async (change) => {
             if (change.type === "added") {
               const data = change.doc.data();
-              if (data && data.source !== email) {
-                console.log("Received remote ICE candidate", data);
+              if (data && data.source !== email && pc.remoteDescription) {
+                console.log("Adding remote ICE candidate");
                 try {
-                  const candidate = new RTCIceCandidate({
-                    candidate: data.candidate,
-                    sdpMid: data.sdpMid,
-                    sdpMLineIndex: data.sdpMLineIndex,
-                  });
-
-                  // Only add candidate if we have a remote description
-                  if (pc.remoteDescription) {
-                    await pc.addIceCandidate(candidate);
-                    console.log("Added remote ICE candidate");
-                  } else {
-                    console.log(
-                      "Storing ICE candidate for later - no remote description yet"
-                    );
-                    pendingCandidatesRef.current.push(candidate);
-                  }
+                  await pc.addIceCandidate(
+                    new RTCIceCandidate({
+                      candidate: data.candidate,
+                      sdpMid: data.sdpMid,
+                      sdpMLineIndex: data.sdpMLineIndex,
+                    })
+                  );
                 } catch (error) {
                   console.error("Error adding received ICE candidate:", error);
                 }
@@ -591,11 +413,10 @@ export default function ProblemScreen() {
       toast.error("Failed to start call. Please try again.");
       setCallStatus("idle");
       setCurrentPeer(null);
-      setCallActive(false);
+      setCallActive(false); // Reset call active flag on error
     }
   };
 
-  // Listen for incoming calls
   useEffect(() => {
     if (!email) return;
 
@@ -658,61 +479,51 @@ export default function ProblemScreen() {
       setCallId(incomingCallId);
       setCallStatus("connecting");
       setCurrentPeer(callerEmail);
-      setCallActive(true);
+      setCallActive(true); // Mark call as active when joining
 
-      // Ensure we have media
-      const mediaReady = await ensureMediaIsReady(audioOnly);
-      if (!mediaReady) {
-        cleanupCall();
-        return;
+      if (!localStream.current) {
+        console.log("Getting media for incoming call...");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: !audioOnly,
+          audio: true,
+        });
+
+        localStream.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
       }
 
-      // Create peer connection
       const pc = createPeerConnection();
 
-      // Reference the call document
       const callDoc = doc(db, "videoCalls", incomingCallId);
       callDocRef.current = callDoc;
 
-      // Get call data
-      const callSnapshot = await getDoc(callDoc);
-      if (!callSnapshot.exists()) {
-        console.error("Call document not found");
-        toast.error("Call not found");
+      const callData = (await getDoc(callDoc)).data();
+      console.log("Retrieved call data", callData);
+
+      if (!callData) {
+        console.error("No call data found");
+        toast.error("Call data not found");
         cleanupCall();
         return;
       }
-
-      const callData = callSnapshot.data();
-      console.log("Retrieved call data", callData);
-
-      // Update call status and media state
-      const mediaStates = callData.mediaStates || {};
-      mediaStates[email] = {
-        isMuted: isMuted,
-        isVideoOff: isVideoOff,
-        updatedAt: serverTimestamp(),
-      };
 
       await updateDoc(callDoc, {
         status: "accepted",
         acceptedAt: serverTimestamp(),
-        mediaStates,
       });
 
-      // Set the remote description from the offer
       if (callData.offer) {
         console.log("Setting remote description from offer");
         await pc.setRemoteDescription(
           new RTCSessionDescription(callData.offer)
         );
 
-        // Create answer
         console.log("Creating answer");
         const answerDescription = await pc.createAnswer();
         await pc.setLocalDescription(answerDescription);
 
-        // Store the answer
         await updateDoc(callDoc, {
           answer: {
             type: answerDescription.type,
@@ -721,64 +532,27 @@ export default function ProblemScreen() {
         });
 
         console.log("Answer created and saved");
-      } else {
-        console.error("No offer found in call data");
-        toast.error("Call setup failed - no offer available");
-        cleanupCall();
-        return;
       }
 
-      // Process any existing ICE candidates
       const candidatesCollection = collection(callDoc, "candidates");
-      const candidatesQuery = query(
-        candidatesCollection,
-        where("source", "==", callerEmail)
-      );
-
-      const candidatesSnapshot = await getDocs(candidatesQuery);
-      console.log(
-        `Processing ${candidatesSnapshot.size} existing ICE candidates`
-      );
-
-      for (const doc of candidatesSnapshot.docs) {
-        const data = doc.data();
-        try {
-          await pc.addIceCandidate(
-            new RTCIceCandidate({
-              candidate: data.candidate,
-              sdpMid: data.sdpMid,
-              sdpMLineIndex: data.sdpMLineIndex,
-            })
-          );
-        } catch (error) {
-          console.error("Error adding existing ICE candidate:", error);
-        }
-      }
-
-      // Listen for additional ICE candidates
       console.log("Setting up listener for ICE candidates");
+
       const candidatesUnsubscribe = onSnapshot(
         candidatesCollection,
         (snapshot) => {
           snapshot.docChanges().forEach(async (change) => {
             if (change.type === "added") {
               const data = change.doc.data();
-              if (data && data.source !== email) {
-                console.log("Adding remote ICE candidate", data);
+              if (data && data.source !== email && pc.remoteDescription) {
+                console.log("Adding remote ICE candidate");
                 try {
-                  if (pc.remoteDescription) {
-                    await pc.addIceCandidate(
-                      new RTCIceCandidate({
-                        candidate: data.candidate,
-                        sdpMid: data.sdpMid,
-                        sdpMLineIndex: data.sdpMLineIndex,
-                      })
-                    );
-                  } else {
-                    console.log(
-                      "Skipping ICE candidate - no remote description yet"
-                    );
-                  }
+                  await pc.addIceCandidate(
+                    new RTCIceCandidate({
+                      candidate: data.candidate,
+                      sdpMid: data.sdpMid,
+                      sdpMLineIndex: data.sdpMLineIndex,
+                    })
+                  );
                 } catch (error) {
                   console.error("Error adding received ICE candidate:", error);
                 }
@@ -788,7 +562,6 @@ export default function ProblemScreen() {
         }
       );
 
-      // Listen for call end
       const callStatusUnsubscribe = onSnapshot(callDoc, (snapshot) => {
         const data = snapshot.data();
         if (data?.ended) {
@@ -859,85 +632,60 @@ export default function ProblemScreen() {
       peerConnection.current = null;
     }
 
+    // Only stop streams if we're actually ending the call
+    if (localStream.current) {
+      localStream.current.getTracks().forEach((track) => track.stop());
+      localStream.current = null;
+    }
+
+    // Clear the remote stream
+    remoteStream.current = null;
+
     setCallId(null);
     setCallStatus("idle");
     setCurrentPeer(null);
-    setCallActive(false);
+    setCallActive(false); // Reset call active flag
     callDocRef.current = null;
-    setRemoteIsMuted(false);
-    setRemoteIsVideoOff(false);
-    pendingCandidatesRef.current = [];
-
-    // Don't stop local streams immediately if we're still in call view
-    if (isCode) {
-      if (localStream.current) {
-        localStream.current.getTracks().forEach((track) => track.stop());
-        localStream.current = null;
-      }
-
-      if (remoteStream.current) {
-        remoteStream.current = null;
-      }
-
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null;
-      }
-    }
   };
 
-  const toggleMute = async () => {
+  const toggleMute = () => {
     if (!localStream.current) return;
-
-    const newMuteState = !isMuted;
-    setIsMuted(newMuteState);
 
     localStream.current.getAudioTracks().forEach((track) => {
-      track.enabled = !newMuteState;
+      track.enabled = !track.enabled;
     });
 
-    await updateMediaState();
+    setIsMuted(!isMuted);
   };
 
-  const toggleVideo = async () => {
+  const toggleVideo = () => {
     if (!localStream.current) return;
 
-    const newVideoState = !isVideoOff;
-    setIsVideoOff(newVideoState);
-
     localStream.current.getVideoTracks().forEach((track) => {
-      track.enabled = !newVideoState;
+      track.enabled = !track.enabled;
     });
 
-    await updateMediaState();
+    setIsVideoOff(!isVideoOff);
   };
 
   async function fetchSolvedProblems(email) {
-    if (!email) return;
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
 
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        const userSolvedProblems = userDoc.data().solvedProblems || [];
-        const problemNames = userSolvedProblems.map((problem) => {
-          if (problem.id === id) {
-            setIsSolved(true);
-          }
-          return problem.name;
-        });
-        setSolvedProblems(problemNames);
-      } else {
-        console.log("No user document found for:", email);
-      }
-    } catch (error) {
-      console.error("Error fetching solved problems:", error);
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const userSolvedProblems = userDoc.data().solvedProblems || [];
+      const problemNames = userSolvedProblems.map((problem) => {
+        if (problem.id === id) {
+          setIsSolved(true);
+        }
+        return problem.name;
+      });
+      setSolvedProblems(problemNames);
+      console.log(userDoc.data());
+    } else {
+      console.log("No user document found for:", email);
     }
   }
 
