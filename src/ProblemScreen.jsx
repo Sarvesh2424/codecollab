@@ -52,7 +52,7 @@ export default function ProblemScreen() {
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
-  const remoteStream = useRef(null); // Add reference to store remote stream
+  const remoteStream = useRef(null);
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -111,7 +111,6 @@ export default function ProblemScreen() {
     let mediaCleanup;
 
     const initializeMedia = async () => {
-      // Only initialize media when in call view or when call is active
       if (!isCode || callActive) {
         try {
           console.log("Initializing media...");
@@ -120,7 +119,6 @@ export default function ProblemScreen() {
             audio: true,
           };
 
-          // Only get new media if we don't already have it
           if (!localStream.current) {
             const stream = await navigator.mediaDevices.getUserMedia(
               constraints
@@ -128,12 +126,10 @@ export default function ProblemScreen() {
             localStream.current = stream;
           }
 
-          // Update video ref if we're in call view
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStream.current;
           }
 
-          // Apply initial media state to tracks
           if (isMuted && localStream.current) {
             localStream.current.getAudioTracks().forEach((track) => {
               track.enabled = false;
@@ -184,27 +180,21 @@ export default function ProblemScreen() {
     };
   }, [db]);
 
-  // Effect to update video elements when switching between views
   useEffect(() => {
-    // Handle local video when switching views
     if (localVideoRef.current && localStream.current) {
       localVideoRef.current.srcObject = localStream.current;
     }
 
-    // Handle remote video when switching views
     if (remoteVideoRef.current && remoteStream.current) {
       remoteVideoRef.current.srcObject = remoteStream.current;
     }
   }, [isCode]);
 
-  // Update media settings in Firestore when they change
   useEffect(() => {
     if (callId && callStatus === "connected") {
       const updateMediaSettings = async () => {
         try {
           const callDoc = doc(db, "videoCalls", callId);
-
-          // Update the document based on who we are in the call
           const callData = (await getDoc(callDoc)).data();
           const isCallerField = email === callData.caller;
           const mediaField = isCallerField ? "callerMedia" : "receiverMedia";
@@ -225,7 +215,6 @@ export default function ProblemScreen() {
     }
   }, [isMuted, isVideoOff, callId, callStatus, db, email]);
 
-  // Listen for remote peer's media settings changes
   useEffect(() => {
     if (callId && callStatus === "connected") {
       const listenToMediaChanges = async () => {
@@ -233,7 +222,6 @@ export default function ProblemScreen() {
           const callDoc = doc(db, "videoCalls", callId);
           const callData = (await getDoc(callDoc)).data();
 
-          // Determine which field to listen to based on who we are
           const isCallerField = email === callData.caller;
           const mediaField = isCallerField ? "receiverMedia" : "callerMedia";
 
@@ -243,14 +231,12 @@ export default function ProblemScreen() {
               setRemoteVideoOff(data[mediaField].videoOff);
               setRemoteMuted(data[mediaField].muted);
 
-              // If we have the remote stream, update its tracks based on remote media settings
               if (remoteStream.current) {
                 // For video tracks
                 remoteStream.current.getVideoTracks().forEach((track) => {
                   track.enabled = !data[mediaField].videoOff;
                 });
 
-                // For audio tracks
                 remoteStream.current.getAudioTracks().forEach((track) => {
                   track.enabled = !data[mediaField].muted;
                 });
@@ -313,9 +299,7 @@ export default function ProblemScreen() {
       console.log("Received remote track", event);
       if (event.streams[0]) {
         console.log("Setting remote video stream");
-        remoteStream.current = event.streams[0]; // Store the remote stream
-
-        // Apply current remote media settings to incoming tracks
+        remoteStream.current = event.streams[0];
         remoteStream.current.getVideoTracks().forEach((track) => {
           track.enabled = !remoteVideoOff;
         });
@@ -324,7 +308,6 @@ export default function ProblemScreen() {
           track.enabled = !remoteMuted;
         });
 
-        // Set the remote stream to the video element if it exists
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
@@ -358,7 +341,7 @@ export default function ProblemScreen() {
       switch (peerConnection.current.connectionState) {
         case "connected":
           setCallStatus("connected");
-          setCallActive(true); // Mark call as active when connected
+          setCallActive(true);
           toast.success("Call connected!");
           break;
         case "disconnected":
@@ -367,7 +350,7 @@ export default function ProblemScreen() {
           if (callStatus === "connected") {
             toast.error("Call disconnected");
             setCallStatus("idle");
-            setCallActive(false); // Mark call as inactive when disconnected
+            setCallActive(false);
           }
           break;
         default:
@@ -390,7 +373,7 @@ export default function ProblemScreen() {
       console.log("Starting call to", friendEmail);
       setCallStatus("calling");
       setCurrentPeer(friendEmail);
-      setCallActive(true); // Mark call as active when starting
+      setCallActive(true);
 
       if (!localStream.current) {
         console.log("Getting media for call...");
@@ -486,7 +469,6 @@ export default function ProblemScreen() {
           }
         }
 
-        // Handle remote media settings updates
         if (data?.receiverMedia) {
           const newRemoteVideoOff = data.receiverMedia.videoOff;
           const newRemoteMuted = data.receiverMedia.muted;
@@ -494,7 +476,6 @@ export default function ProblemScreen() {
           setRemoteVideoOff(newRemoteVideoOff);
           setRemoteMuted(newRemoteMuted);
 
-          // Update remote stream tracks if available
           if (remoteStream.current) {
             remoteStream.current.getVideoTracks().forEach((track) => {
               track.enabled = !newRemoteVideoOff;
@@ -544,7 +525,7 @@ export default function ProblemScreen() {
       toast.error("Failed to start call. Please try again.");
       setCallStatus("idle");
       setCurrentPeer(null);
-      setCallActive(false); // Reset call active flag on error
+      setCallActive(false);
     }
   };
 
@@ -565,8 +546,8 @@ export default function ProblemScreen() {
           console.log("Received call request from", data.caller);
           toast(
             (t) => (
-              <span>
-                📞 Incoming call from <b>{data.caller}</b>
+              <span className="flex items-center gap-2">
+                <PhoneIcon /> Incoming call from <b>{data.caller}</b>
                 <br />
                 <div className="flex gap-2 mt-2">
                   <button
@@ -610,7 +591,7 @@ export default function ProblemScreen() {
       setCallId(incomingCallId);
       setCallStatus("connecting");
       setCurrentPeer(callerEmail);
-      setCallActive(true); // Mark call as active when joining
+      setCallActive(true);
 
       if (!localStream.current) {
         console.log("Getting media for incoming call...");
@@ -640,7 +621,6 @@ export default function ProblemScreen() {
         return;
       }
 
-      // Update call doc with initial media state
       await updateDoc(callDoc, {
         status: "accepted",
         acceptedAt: serverTimestamp(),
@@ -651,7 +631,6 @@ export default function ProblemScreen() {
         },
       });
 
-      // Read caller's media state
       if (callData.callerMedia) {
         const callerVideoOff = callData.callerMedia.videoOff;
         const callerMuted = callData.callerMedia.muted;
@@ -716,7 +695,6 @@ export default function ProblemScreen() {
           cleanupCall();
         }
 
-        // Handle remote media settings updates
         if (data?.callerMedia) {
           const callerVideoOff = data.callerMedia.videoOff;
           const callerMuted = data.callerMedia.muted;
@@ -724,7 +702,6 @@ export default function ProblemScreen() {
           setRemoteVideoOff(callerVideoOff);
           setRemoteMuted(callerMuted);
 
-          // Update remote stream tracks if available
           if (remoteStream.current) {
             remoteStream.current.getVideoTracks().forEach((track) => {
               track.enabled = !callerVideoOff;
@@ -798,19 +775,17 @@ export default function ProblemScreen() {
       peerConnection.current = null;
     }
 
-    // Only stop streams if we're actually ending the call
     if (localStream.current) {
       localStream.current.getTracks().forEach((track) => track.stop());
       localStream.current = null;
     }
 
-    // Clear the remote stream
     remoteStream.current = null;
 
     setCallId(null);
     setCallStatus("idle");
     setCurrentPeer(null);
-    setCallActive(false); // Reset call active flag
+    setCallActive(false);
     setRemoteVideoOff(false);
     setRemoteMuted(false);
     callDocRef.current = null;
