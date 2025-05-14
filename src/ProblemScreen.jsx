@@ -55,11 +55,10 @@ export default function ProblemScreen() {
   const remoteStream = useRef(null); // Add reference to store remote stream
   const callDocRef = useRef(null);
   const callListenerUnsubscribe = useRef(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isVideoOff, setIsVideoOff] = useState(true);
   const [audioOnly, setAudioOnly] = useState(false);
-  const [callActive, setCallActive] = useState(false); // New state to track if call is active even when in code view
-
+  const [callActive, setCallActive] = useState(false); 
   useEffect(() => {
     const fetchProblem = async () => {
       const docRef = doc(db, "codingProblems", id);
