@@ -133,6 +133,19 @@ export default function ProblemScreen() {
             localVideoRef.current.srcObject = localStream.current;
           }
 
+          // Apply initial media state to tracks
+          if (isMuted && localStream.current) {
+            localStream.current.getAudioTracks().forEach((track) => {
+              track.enabled = false;
+            });
+          }
+
+          if (isVideoOff && localStream.current) {
+            localStream.current.getVideoTracks().forEach((track) => {
+              track.enabled = false;
+            });
+          }
+
           console.log("Media initialized successfully");
         } catch (error) {
           console.error("Error accessing media devices:", error);
@@ -146,7 +159,7 @@ export default function ProblemScreen() {
     mediaCleanup = () => {};
 
     return mediaCleanup;
-  }, [isCode, audioOnly, callActive]);
+  }, [isCode, audioOnly, callActive, isMuted, isVideoOff]);
 
   useEffect(() => {
     return () => {
@@ -192,7 +205,8 @@ export default function ProblemScreen() {
           const callDoc = doc(db, "videoCalls", callId);
 
           // Update the document based on who we are in the call
-          const isCallerField = email === (await getDoc(callDoc)).data().caller;
+          const callData = (await getDoc(callDoc)).data();
+          const isCallerField = email === callData.caller;
           const mediaField = isCallerField ? "callerMedia" : "receiverMedia";
 
           await updateDoc(callDoc, {
@@ -228,6 +242,19 @@ export default function ProblemScreen() {
             if (data && data[mediaField]) {
               setRemoteVideoOff(data[mediaField].videoOff);
               setRemoteMuted(data[mediaField].muted);
+
+              // If we have the remote stream, update its tracks based on remote media settings
+              if (remoteStream.current) {
+                // For video tracks
+                remoteStream.current.getVideoTracks().forEach((track) => {
+                  track.enabled = !data[mediaField].videoOff;
+                });
+
+                // For audio tracks
+                remoteStream.current.getAudioTracks().forEach((track) => {
+                  track.enabled = !data[mediaField].muted;
+                });
+              }
             }
           });
 
@@ -287,6 +314,15 @@ export default function ProblemScreen() {
       if (event.streams[0]) {
         console.log("Setting remote video stream");
         remoteStream.current = event.streams[0]; // Store the remote stream
+
+        // Apply current remote media settings to incoming tracks
+        remoteStream.current.getVideoTracks().forEach((track) => {
+          track.enabled = !remoteVideoOff;
+        });
+
+        remoteStream.current.getAudioTracks().forEach((track) => {
+          track.enabled = !remoteMuted;
+        });
 
         // Set the remote stream to the video element if it exists
         if (remoteVideoRef.current) {
@@ -452,8 +488,22 @@ export default function ProblemScreen() {
 
         // Handle remote media settings updates
         if (data?.receiverMedia) {
-          setRemoteVideoOff(data.receiverMedia.videoOff);
-          setRemoteMuted(data.receiverMedia.muted);
+          const newRemoteVideoOff = data.receiverMedia.videoOff;
+          const newRemoteMuted = data.receiverMedia.muted;
+
+          setRemoteVideoOff(newRemoteVideoOff);
+          setRemoteMuted(newRemoteMuted);
+
+          // Update remote stream tracks if available
+          if (remoteStream.current) {
+            remoteStream.current.getVideoTracks().forEach((track) => {
+              track.enabled = !newRemoteVideoOff;
+            });
+
+            remoteStream.current.getAudioTracks().forEach((track) => {
+              track.enabled = !newRemoteMuted;
+            });
+          }
         }
       });
 
@@ -603,8 +653,11 @@ export default function ProblemScreen() {
 
       // Read caller's media state
       if (callData.callerMedia) {
-        setRemoteVideoOff(callData.callerMedia.videoOff);
-        setRemoteMuted(callData.callerMedia.muted);
+        const callerVideoOff = callData.callerMedia.videoOff;
+        const callerMuted = callData.callerMedia.muted;
+
+        setRemoteVideoOff(callerVideoOff);
+        setRemoteMuted(callerMuted);
       }
 
       if (callData.offer) {
@@ -665,8 +718,22 @@ export default function ProblemScreen() {
 
         // Handle remote media settings updates
         if (data?.callerMedia) {
-          setRemoteVideoOff(data.callerMedia.videoOff);
-          setRemoteMuted(data.callerMedia.muted);
+          const callerVideoOff = data.callerMedia.videoOff;
+          const callerMuted = data.callerMedia.muted;
+
+          setRemoteVideoOff(callerVideoOff);
+          setRemoteMuted(callerMuted);
+
+          // Update remote stream tracks if available
+          if (remoteStream.current) {
+            remoteStream.current.getVideoTracks().forEach((track) => {
+              track.enabled = !callerVideoOff;
+            });
+
+            remoteStream.current.getAudioTracks().forEach((track) => {
+              track.enabled = !callerMuted;
+            });
+          }
         }
       });
 
